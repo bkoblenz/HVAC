@@ -1,0 +1,99 @@
+$def with(m_vals)
+
+$var title: $_('Irricloud Text/Email Messaging')
+$var page: plugins
+
+<script>
+    // Initialize behaviors
+    jQuery(document).ready(function(){
+
+        jQuery("#cSubmit").click(function() {
+            jQuery("#pluginForm").submit();
+        });
+        jQuery("button#cCancel").click(function(){
+            window.location="/";
+        });
+
+    });
+</script>
+
+<div id="plugin">
+    <div class="title">Text/Email Messaging</div>
+    <p>Send texts or email messages. A GMail account is required as the sender.</p>
+    <form id="pluginForm" action="/teu" method="get">
+        <table class="optionList">
+            <tr>
+                <td style='text-transform: none;'>Send email (text without attachment) with file log after power on:</td>
+                <td>
+                    <input name='telog' type='checkbox'${" checked" if m_vals['telog'] == "on" else ""}>   
+                </td>
+            </tr>
+            $if gv.sd['master']:
+                <tr>
+                    <td style='text-transform: none;'>Send email with substation availability change:</td>
+                    <td>
+                        <input name='tesub' type='checkbox'${" checked" if m_vals['tesub'] == "on" else ""}>   
+                    </td>
+                </tr>
+
+<!--
+            <tr>
+                <td style='text-transform: none;'>Send text/email if rain is detected:</td>
+                <td>
+                    <input name='terain' type='checkbox'${" checked" if m_vals['terain'] == "on" else ""}>   
+                </td>
+            </tr>
+-->
+            <tr>
+                <td style='text-transform: none;'>Sends text/email if program has run:</td>
+                <td>
+                    <input name='terun' type='checkbox'${" checked" if m_vals['terun'] == "on" else ""}> 
+                </td>
+            </tr>
+            <tr>
+                <td style='text-transform: none;'>Your GMail username:</td>
+                <td>
+                    <input name='teusr' type='text' value=$m_vals["teusr"]>
+                </td>
+            </tr>
+            <tr>
+                <td style='text-transform: none;'>Your GMail password:</td>
+                <td>
+                    <input name='tepwd' type='password' value=$m_vals["tepwd"]>
+                </td>
+            </tr>
+            <tr>
+                <td style='text-transform: none;'>Status:</td>
+                <td>
+                    <textarea style="font-family: monospace;" rows="7" cols="35" readonly>$m_vals['status']</textarea>
+                </td>
+            </tr>
+            <tr>
+                <th>$_('Email Address')</th>
+                <th>$_('10 digit Phone Number')</th>
+                <th>$_('Phone Provider')</th>
+            </tr>
+            $for i in range(5):
+                <tr>
+                    <td align="center">
+                        <input name="teadr${i}" type="text" value="${m_vals['teadr'+str(i)]}">
+                    </td>
+                    <td align="center">
+                        <input name="tesmsnbr${i}" type="text" value="${m_vals['tesmsnbr'+str(i)]}">
+                    </td>
+                    <td>
+                        <select name="tesmsprovider${i}">
+                            $for opt in ['AT&T', 'Cingular', 'Cricket', 'Nextel', 'Sprint', 'T-Mobile', 'TracFone', 'U.S. Cellular', 'Verizon', 'Virgin']:
+                                <option value="$opt" ${" selected" if m_vals[u'tesmsprovider'+str(i)]==opt else ""}>$opt</option>
+                        </select>
+                    </td>
+                </tr>
+        </table>
+    </form>
+</div>
+<div id="controls">
+    <button id="cSubmit" class="submit"><b>Submit</b></button>
+    <button id="cCancel" class="cancel danger">Cancel</button>
+</div>
+                                  
+                     

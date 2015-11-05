@@ -1,0 +1,14 @@
+Description: Adjust irrigation time based on evapotranspiration
+Copyright 2015
+Author: Brian Koblenz
+Email: 
+License: GNU GPL 3.0
+
+Requirements:
+
+##### List all plugin files below preceded by a blank line [file_name.ext path] relative to OSPi directory #####
+
+et_weather_level_adj.py plugins
+et_weather_level_adj.html templates
+et_weather_level_adj.json data (generated)
+et_weather_level_adj.manifest plugins/manifests

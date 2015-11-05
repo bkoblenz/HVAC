@@ -1,0 +1,43 @@
+$def with (head, continuation, subinfo)
+
+$var title: $_('Irricloud ' + head)
+$var page: $head
+$code:
+    nsubs = len(subinfo)
+
+<script>
+    // Initialize behaviors
+    jQuery(document).ready(function(){
+
+        jQuery("button.cDoit").click(function(){
+            var params = jQuery(this).attr("data");
+            var paramo = JSON.parse(params);
+            var sub = paramo["substation"];
+            jQuery("form#ds input[name='substation']").val(sub);
+            jQuery("form#ds").submit();
+        });
+    });
+
+    function refresh() {
+         setTimeout(refresh, 10000);
+         window.location = baseUrl + '/suslv?head=${head}&continuation=${continuation}';
+     }
+
+     setTimeout(refresh, 10000);
+</script>
+
+<form name="ds" id="ds" action="$app_path('/susle')" method="get">
+    <input type="hidden" name="substation">
+    <input type="hidden" name="continuation" value="${continuation}">
+</form>
+
+<h1>Substation ${head}</h1>
+
+<div id="programs">
+    $for subid in range(1,nsubs):
+        $ sub = subinfo[subid]
+        $ params = {'substation':subid}
+        $ jparams = json.dumps(params)
+        $ danger = '' if sub['status'] == 'ok' else 'danger'
+        <br><p><button class="cDoit ${danger}" data="${jparams}">${sub['name']}</button></p>
+</div>

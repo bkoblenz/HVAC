@@ -1,0 +1,81 @@
+$def with (fms)
+
+$var title: $_('SIP Flow Meters')
+$var page: plugins
+
+<script>
+
+    // Initialize behaviors
+    jQuery(document).ready(function(){
+
+        jQuery("button#cSubmit").click(function(){
+            jQuery("#pluginForm").submit();
+        });
+
+        jQuery("button#cCancel").click(function(){
+            window.location= baseUrl + "/";
+        });
+
+    });
+
+</script>
+<div id="flowmeters">
+    <div class="title">$_('Configure Flow Meters')</div>
+    <form id="pluginForm" name="pluginForm" action="$app_path('/ldu')" method="get">
+        <table class="flowmeterList">
+            <tr>
+                <td style='text-transform: none;'>$_('Flow meters'):</td>
+                <td>
+                    <input name='count' type='number' min="0" max="3" value=$fms["count"]>
+                </td>
+            </tr>
+            <tr>
+                <td style='text-transform: none;'>$_('Status'):</td>
+                <td>
+                    <textarea style="font-family: monospace;" rows="7" cols="40" readonly>$fms['status']</textarea>
+                </td>
+            </tr>
+            <tr>
+                <th class="stationNumber">$_('Flow Meter')</th>
+                <th class="stationName">$_('Name')</th>
+                <th class="stationShow">$_('Enabled?')</th>
+                <th class="stationShow">$_('Text/Email?')</th>
+                <th class="stationNumber">$_('Pin')</th>
+                <th class="stationNumber">$_('Sensitivity')</th>
+                <th class="fmStabilize">$_('Stabilization Time')</th>
+                <th class="stationShow">$_('Relearn?')</th>
+            </tr>
+            $for fmid in range(int(fms['count'])):
+                <tr>
+                    <td class="stationNumber">${fmid + 1}</td>
+                    <td class="stationName">
+                        <input type="text" size="${gv.sd['snlen']}" maxlength="${gv.sd['snlen']}" value="${fms['data'][fmid]['name']}" name="name${fmid}" id="name${fmid}">
+                    </td>
+                    <td class="stationShow">
+                        <input type="checkbox" ${"checked" if fms['data'][fmid]['enable'] == 'on' else ""} name="enable${fmid}" id="enable${fmid}">
+                    </td>
+                    <td class="stationShow">
+                        <input type="checkbox" ${"checked" if fms['data'][fmid]['te'] == 'on' else ""} name="te${fmid}" id="te${fmid}">
+                    </td>
+                    <td class="stationNumber">
+                        <input type="number" style="text-align:right" min="0" max="40" size="2" value="${fms['data'][fmid]['pin']}" name="pin${fmid}" id="pin${fmid}">
+                    </td>
+                    <td class="stationNumber">
+                        <input type="number" style="text-align:right" min="0" max="100" size="3" value="${fms['data'][fmid]['sens']}" name="sens${fmid}" id="sens${fmid}">%
+                    </td>
+                    <td class="fmStabilize">
+                        <input type="number" style="text-align:right" min="0" max="10" value="${fms['data'][fmid]['mm']}" name="mm${fmid}" id="mm${fmid}">:
+                        <input type="number" style="text-align:right" min="0" max="59" value="${fms['data'][fmid]['ss']}" name="ss${fmid}" id="ss${fmid}"> (mm:ss)
+                    </td>
+                    <td class="stationShow">
+                        <input type="checkbox" "" name="rln${fmid}" id="rln${fmid}">
+                    </td>
+                </tr>
+        </table>
+    </form>
+</div>
+
+<div id="controls">
+    <button id="cSubmit" class="submit">$_('Submit Changes')</button>
+    <button id="cCancel" class="cancel danger">$_('Cancel')</button>
+</div>

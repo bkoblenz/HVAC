@@ -1,0 +1,51 @@
+$def with (m_vals)
+
+$var title: $_('Irricloud Relay Board Settings')
+$var page: plugins
+<script>
+   // Initialize behaviors
+   jQuery(document).ready(function(){
+      jQuery("#cSubmit").click(function() {
+         jQuery("#pluginForm").submit();
+      });
+      jQuery("button#cCancel").click(function(){
+         window.location="/";
+      });
+       jQuery("button#docButton").click(function(){
+           window.open("https://github.com/KanyonKris/sprinkler-weather/wiki/relay_board-Documentation", "_blank"); //Edit: replace "proto-docs.html"
+       })
+   });
+</script>
+
+<div id="plugin">
+   <div class="title">$_('Relay Board Settings')
+<!--
+   <button class="execute" id="docButton" type="button" >$_('Help')</button>
+-->
+   </div>
+   <p>$_('A plugin for using relay boards to control sprinkler valves.')
+   </p>
+   <br>
+   <form id="pluginForm" action="/rbu" method="get">
+   <div class='option' title='Number of relays connected to the system.'><span class='label'>$_('Relay channels'):</span>
+      <select name="relays">
+         $for i in range(1,21):
+             <option value="${str(i)}" ${" selected" if m_vals[u"relays"]==i else ""}>${i}</option>
+      </select>
+      <span class='tooltip'>$_('Number of relays connected to the system.')</span>
+   </div>
+   <div class='option' title='Active low means the relay turns on when the input is low and turns off when the input is high. Active high does the opposite.'><span class='label'>$_('Active'):</span>
+      <input type="radio" name="active" value="low" ${" checked" if m_vals[u"active"]==u"low" else ""}>Low
+      <input type="radio" name="active" value="high" ${" checked" if m_vals[u"active"]==u"high" else ""}>High
+      <span class='tooltip'>$_('Active low means the relay turns on when the input is low and turns off when the input is high. Active high does the opposite.')</span>
+   </div>
+   <br>
+   <p><b>$_('IMPORTANT'):</b> $_('If') <b>$_('Active')</b> $_('is changed'), <b>$_('Relay channels')</b> $_('will be set to') <b>1</b> $_('to prevent all the relays being switched on, and possibly damaging the power supply.')
+         $_('After verifying that the first relay is off, return to this page and set') <b>$_('Relay channels')</b> $_('to the correct number.')
+   </p>
+   </form>
+</div>
+<div id="controls">
+    <button id="cSubmit" class="submit"><b>$_('Submit')</b></button>
+    <button id="cCancel" class="cancel danger">$_('Cancel')</button>
+</div>

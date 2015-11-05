@@ -1,0 +1,86 @@
+$def with (m_vals)
+
+$var title: $_('Irricloud Camera Settings')
+$var page: plugins
+<script>
+   // Initialize behaviors
+   jQuery(document).ready(function(){
+
+      jQuery("#cTakePic").click(function() {
+         window.location= baseUrl + "/cap";
+      });
+
+      jQuery("#cSubmit").click(function() {
+         jQuery("#pluginForm").submit();
+      });
+
+      jQuery("button#cCancel").click(function(){
+         window.location="/";
+      });
+
+   });
+
+var unique_name = (new Date()).getTime();
+var ptzMoveTopLeft = "ptzMoveTopLeft";
+var ptzMoveBottomLeft = "ptzMoveBottomLeft";
+var ptzMoveLeft = "ptzMoveLeft";
+var ptzMoveUp = "ptzMoveUp";
+var ptzMoveDown = "ptzMoveDown";
+var ptzMoveRight = "ptzMoveRight";
+var ptzMoveBottomRight = "ptzMoveBottomRight";
+var ptzMoveTopRight = "ptzMoveTopRight";
+
+function decoder_control_2(arg) {
+    window.location="/captz?param="+arg;
+}
+
+</script>
+
+<div id="plugin">
+   <div class="title">$_('Camera Settings')
+   </div>
+   <p>$_('A plugin for activating the camera with zone changes.')
+   </p>
+   <br>
+   <form id="pluginForm" action="/cau" method="get">
+        <table class="optionList">
+            <tr>
+                <td style='text-transform: none;'>$_('Take pictures on zone change'):</td>
+                <td>
+                    <input name='zone_pic' type='checkbox'${" checked" if m_vals['zone_pic'] == "on" else ""}>
+                </td>
+            </tr>
+            <tr>
+                <td style='text-transform: none;'>$_('Sleep time'):</td>
+                <td>
+                    <input name='sleep_time' type='number' min="2" max="120" value=$m_vals["sleep_time"]>
+                </td>
+                <span class='tooltip'>$_('Time after zone switches before picture is taken.  2 second minimum; 2 minute maximum.')</span>
+            </tr>
+        </table>
+   </form>
+</div>
+<div id="controls">
+    <button id="cTakePic" class="submit">$_('Take Current Picture')</button>
+    <button id="cSubmit" class="submit"><b>$_('Submit')</b></button>
+    <button id="cCancel" class="cancel danger">$_('Cancel')</button>
+</div>
+
+<div id ="PTZ1" align="center">
+    <center>
+<!--
+    <br><br>
+    <button type="button" onTouchStart="decoder_control_2(ptzMoveTopLeft)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveTopLeft)" onMouseUp="decoder_control_2('ptzStopRun')">&#8593;&#8592;</button>&nbsp;
+    <button type="button" onTouchStart="decoder_control_2(ptzMoveBottomLeft)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveBottomLeft)" onMouseUp="decoder_control_2('ptzStopRun')">&#8595;&#8592;</button>&nbsp;
+    <button type="button" onTouchStart="decoder_control_2(ptzMoveLeft)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveLeft)" onMouseUp="decoder_control_2('ptzStopRun')">&#8592;</button>&nbsp;
+    <button type="button" onTouchStart="decoder_control_2(ptzMoveUp)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveUp)" onMouseUp="decoder_control_2('ptzStopRun')">&#8593;</button>&nbsp;
+    <button type="button" onTouchStart="decoder_control_2('ptzReset')" onMouseDown="decoder_control_2('ptzReset')">&#8594;&#8592;(Reset)</button>&nbsp;
+    <button type="button" onTouchStart="decoder_control_2(ptzMoveDown)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveDown)" onMouseUp="decoder_control_2('ptzStopRun')">&#8595;</button>&nbsp;
+    <button type="button" onTouchStart="decoder_control_2(ptzMoveRight)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveRight)" onMouseUp="decoder_control_2('ptzStopRun')">&#8594;</button>&nbsp;
+    <button type="button" onTouchStart="decoder_control_2(ptzMoveBottomRight)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveBottomRight)" onMouseUp="decoder_control_2('ptzStopRun')">&#8594;&#8595;</button>&nbsp;
+    <button type="button" onTouchStart="decoder_control_2(ptzMoveTopRight)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveTopRight)" onMouseUp="decoder_control_2('ptzStopRun')">&#8594;&#8593;</button> 
+    <br><br>
+-->
+    <img style="margin: 25px" id="cameraimg" src="static/images/camera.jpg" alt="No camera image">
+    </center>
+</div>
