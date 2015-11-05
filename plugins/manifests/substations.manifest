@@ -1,9 +1,0 @@
-Description: This plugins supports substations for large or spread out deployments.  This software is restricted use; not available under GPL.
-Author: Brian Koblenz
-
-##### List all plugin files below preceded by a blank line [file_name.ext path] relative to OSPi directory #####
-
-substations.py plugins
-substations.html templates
-substations.json data (generated)
-substations.manifest plugins/manifests

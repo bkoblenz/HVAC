@@ -1,9 +1,0 @@
-Description: This plugins send texts and emails via google email.
-Author: Brian Koblenz based on work from Martin Pihrt 
-
-##### List all plugin files below preceded by a blank line [file_name.ext path] relative to OSPi directory #####
-
-text_email.py plugins
-text_email.html templates
-text_email.json data (generated)
-text_email.manifest plugins/manifests
