@@ -53,14 +53,13 @@ if __name__ == "__main__":
     # wait for other things to get started
     time.sleep(4)
     pi = pigpio.pi()
-    # todo Pick a valid pin
     button_pin = 21
     pi.set_mode(button_pin, pigpio.INPUT)
     pi.set_pull_up_down(button_pin, pigpio.PUD_UP)
 
     reset_skip = 0
-    sip_restart_skip = 1
-    sip_net_finish_skip = 1
+    boiler_restart_skip = 1
+    boiler_net_finish_skip = 1
     last_hostapd_reset = timegm(time.localtime())
     last_ntp_state = len(ps_list('/usr/sbin/ntpd')) == 0
     while True:

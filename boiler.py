@@ -9,15 +9,16 @@ import logging
 
 pi = pigpio.pi()
 zone_call = [20, pigpio.PUD_UP] # phys 38
-factory_reset = [21, pigpio.PUD_UP] # phys 40
-in_pins = [factory_reset, zone_call]
+factory_reset = [21, pigpio.PUD_UP] # phys 40  ### RESERVED BY boiler_monitor.py
+in_pins = [zone_call]
 
-dry1 = [5, 0] # phys 29
+dry1 = [5, 1] # phys 29
 dry2 = [6, 1] # phys 31
 dry3 = [13, 1] # phys 33
 dry4 = [19, 1] # phys 35
-circ_pump = [26, 0] # phys 37
-out_pins = [circ_pump, dry1, dry2, dry3, dry4]
+circ_pump = [26, 1] # phys 37
+boiler_call = [16, 1] # phys 36
+out_pins = [circ_pump, boiler_call, dry1, dry2, dry3, dry4]
 
 logger = logging.getLogger('boiler')
 
@@ -50,14 +51,24 @@ if __name__ == '__main__':
         pi.set_mode(pin, pigpio.OUTPUT)
         pi.write(pin, pin_e[1])
 
+    last_circ_pump = circ_pump[1]
+    t = 0
     while True:
+        t += 1
+        if t >= 10:
+            t -= 10
         for pin_e in in_pins:
             pin = pin_e[0]
+            if pin != zone_call[0] and t != 1:
+                continue
             v = pi.read(pin)
-            print 'pin: ', pin, ' value: ', v
-#            if v == 0:
-#                logger.debug('some zone operating')
-#            else:
-#                logger.debug('no zone operating')
+            print 'pin: ', pin, ' value: ', v, t
+            if pin == zone_call[0] and v != last_circ_pump: # zone_call==0 --> last_circ_pump = 0
+                last_circ_pump = v
+                pi.write(circ_pump[0], last_circ_pump)
+                pi.write(boiler_call[0], last_circ_pump)
+                msg = 'disabling' if last_circ_pump else 'enabling'
+                msg += ' ciculation pump and boiler'
+                logger.debug(msg)
         time.sleep(5)
 
