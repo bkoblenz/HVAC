@@ -7,6 +7,16 @@ import time
 import pigpio
 import logging
 
+# masks
+# heating with boiler and heatpump == 7
+# heating with only boiler == 3
+# heating with only heatpump == 5
+# cooling with heatpump == 4
+# nothing == 0
+HEATING = 0x1
+BOILER = 0x2
+HEATPUMP = 0x4
+
 pi = pigpio.pi()
 zone_call = [20, pigpio.PUD_UP] # phys 38
 factory_reset = [21, pigpio.PUD_UP] # phys 40  ### RESERVED BY boiler_monitor.py
@@ -14,8 +24,8 @@ in_pins = [zone_call]
 
 dry1 = [5, 1] # phys 29
 dry2 = [6, 1] # phys 31
-dry3 = [13, 1] # phys 33
-dry4 = [19, 1] # phys 35
+dry3 = [13, 1] # phys 33, default is this controls heatpump
+dry4 = [19, 1] # phys 35, default is this controls heatpump
 circ_pump = [26, 1] # phys 37
 boiler_call = [16, 1] # phys 36
 out_pins = [circ_pump, boiler_call, dry1, dry2, dry3, dry4]
@@ -39,6 +49,7 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG) 
     logger.info('Starting...')
 
+    mode = HEATING+BOILER+HEATPUMP
     for pin_e in in_pins:
         pin = pin_e[0]
         print 'initializing input pin: ', pin
@@ -66,7 +77,16 @@ if __name__ == '__main__':
             if pin == zone_call[0] and v != last_circ_pump: # zone_call==0 --> last_circ_pump = 0
                 last_circ_pump = v
                 pi.write(circ_pump[0], last_circ_pump)
-                pi.write(boiler_call[0], last_circ_pump)
+                if (mode & HEATING) == HEATING:
+                    if (mode & BOILER) == BOILER:
+                        pi.write(boiler_call[0], last_circ_pump)
+                    if (mode & HEATPUMP) == HEATPUMP:
+                        if False:
+                            pi.write(dry2[0], last_circ_pump)
+                            pi.write(dry4[0], last_circ_pump)
+                elif (mode & HEATPUMP) == HEATPUMP:
+                    pi.write(dry3[0], last_circ_pump)
+                    pi.write(dry4[0], last_circ_pump)
                 msg = 'disabling' if last_circ_pump else 'enabling'
                 msg += ' ciculation pump and boiler'
                 logger.debug(msg)
