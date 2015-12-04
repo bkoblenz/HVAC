@@ -1,0 +1,9 @@
+web/
+/sessions/*
+/data/*.json
+*.pyc
+*.csv
+/python
+.idea
+/.settings
+/data/*.db
