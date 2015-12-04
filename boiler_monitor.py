@@ -61,7 +61,8 @@ if __name__ == "__main__":
     boiler_restart_skip = 1
     boiler_net_finish_skip = 1
     last_hostapd_reset = timegm(time.localtime())
-    last_ntp_state = len(ps_list('/usr/sbin/ntpd')) == 0
+    last_ntp_reset = 0 # force immediate reset
+
     while True:
         try:
             factory_reset = False
@@ -117,9 +118,25 @@ if __name__ == "__main__":
                 logger.debug( 'boiler_net_start rc: ' + str(rc))
                 time.sleep(10)
 
+            nowt = time.localtime()
+            now = timegm(nowt)
+            if now - last_ntp_reset > 24*60*60:  # seems to be working, but reset once per day
+                ps_ntp_list = ps_list('/usr/sbin/ntpd')
+                if len(ps_ntp_list) > 0:
+                    try:
+                        subprocess.call("/etc/init.d/openntpd stop", shell=True, stderr=subprocess.STDOUT)
+                    except Exception as ex:
+                        logger.critical('could not stop openntpd: ' + str(ex))
+                else:
+                    try:
+                        last_ntp_reset = now # mark now to wait another day even if fail
+                        subprocess.call("/etc/init.d/openntpd start", shell=True, stderr=subprocess.STDOUT)
+                        logger.info('restarted openntpd')
+                    except Exception as ex:
+                        logger.critical('could not restart openntpd: ' + str(ex))
+
             ps_boiler_list = ps_list('boiler.py')
             ps_conf_list = ps_list('boiler_net_finish.py')
-            ps_ntp_list = ps_list('/usr/sbin/ntpd')
             found_boiler = 0
             for entry in ps_boiler_list:
                 if '/usr/bin/python' in entry:
@@ -130,23 +147,6 @@ if __name__ == "__main__":
                 if '/usr/bin/python' in entry:
                     found_net_conf = entry.split()[1]
 
-            # log changes in openntpd state.  Maybe we will need to
-            # restart it
-            if len(ps_ntp_list) > 0:
-                if not last_ntp_state:
-                    logger.info('openntpd running')
-                    last_ntp_state = True
-            else:
-                if last_ntp_state:
-                    logger.info('openntpd not running...restarting')
-                    try:
-                        subprocess.call("/etc/init.d/openntpd start", shell=True, stderr=subprocess.STDOUT)
-                        last_ntp_state = False
-                    except Exception as ex:
-                        logger.exception('could not restart openntpd: ' + str(ex))
-
-            nowt = time.localtime()
-            now = timegm(nowt)
             if found_boiler == 0:
                 boiler_net_finish_skip = 1
                 if found_net_conf == 0:
