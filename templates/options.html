@@ -7,7 +7,7 @@ $code:
 	languages = i18n.languages
 	langKeys = i18n.languages.keys()
 	langKeys.sort()
-	snames = gv.snames
+        md = gv.sd['mode']
 
 <script>
     var errorCode = "${errorCode}";
@@ -90,6 +90,7 @@ $code:
         for k in tzdict.keys():
            tzl.append(k)
         tzl.sort()
+        modes = ['None', 'Boiler Only', 'Boiler and Heatpump', 'Heatpump Only', 'Heatpump Cooling']
         for opt in opts:
             label = opt[0]
             datatype = opt[1]
@@ -115,24 +116,18 @@ $code:
                 for L in langKeys:
                     output += "<option " + ("selected " if value==L else "") + "value='"+L+"'>"+languages[L]+"</option>\n"
                 output += "</select>\n"
+            elif name == "mode":
+                output += "<select name= 'omode'>\n"
+                for m in modes:
+                    output += "<option " + ("selected " if value==m else "") + "value='"+m+"'>"+m+"</option>\n"
+                output += "</select>\n"
             elif name == "tza":
                 output += "<select name= 'otza'>\n"
                 for tz in tzl:
                     output += "<option " + ("selected " if value==tz else "") + "value='"+tz+"'>"+tz+"</option>\n"
                 output += "</select>\n"
-            elif name == "mas":
-                output += "<select name='omas'>\n"
-                output += "<option " + ("selected " if value==0 else "") + "value='0'>"+_('None')+"</option>\n"
-                for i in range(gv.sd['nst']):
-                    bid = i // 8
-                    sid = i % 8
-                    if (gv.sd['show'][bid]>>sid)&1 == 1:
-                        output += "<option " + ("selected " if value==i+1 else "") + "value='" + str(i+1) + "'>" + snames[i] + "  (Station " + str(i+1) + ")</option>\n"
-                output += "</select>\n"
             elif name == "htp":
                 output += "<input name='ohtp' type='text' size='5' maxlength='5' value='" + str(value) + "'>\n"
-            elif name == "nbrd":
-                output += "<input name='onbrd' type='text' size='1' maxlength='1' value='" + str(value - 1) + "'>\n"
             else:
                 output += "<input name='o" + name + "' type='text' size='4' maxlength='4' value='" + str(value) + "'>\n"
 

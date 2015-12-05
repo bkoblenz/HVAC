@@ -256,3 +256,74 @@ def get_input(qdict, key, default=None, cast=None):
         if cast is not None:
             result = cast(result)
     return result
+
+def read_log(end_date='', days_before=0):
+    """
+    Take optional end date in struct time format and return the log records
+    for that date and days_before more dates.
+    """
+
+    if end_date == '':
+        start_date = 0
+        end_date = time.strftime('%Y-%m-%d', gv.nowt)
+    else:
+        end_st_date = time.strptime(end_date, '%Y-%m-%d')
+        end_dt_date = datetime.datetime(*end_st_date[:6])
+        start_date = end_dt_date - datetime.timedelta(days=days_before)
+        start_date = str(start_date)
+        start_date = start_date[:start_date.find(' ')] # remove seconds
+
+    result = []
+    try:
+        with io.open('./data/log.json') as logf:
+            records = logf.readlines()
+            count = 0
+            for i in records:
+                count += 1
+                try:
+                    rec = json.loads(i)
+                except:
+                    print 'log.json record: ', count, ' record: ' , i
+                    continue
+                rec_date = rec['date']
+                if start_date != 0:
+                    if rec_date < start_date:
+                        break; # no need to process rest of file
+                if end_date != '':
+                    if rec_date > end_date:
+                        continue # skip this record
+                result.append(rec)
+        return result
+    except IOError:
+        return result
+
+
+def jsave(data, fname):
+    """
+    Save data to a json file.
+    
+    
+    """
+    with open('./data/' + fname + '.json', 'w') as f:
+        json.dump(data, f)
+
+
+def log_event(msg):
+    """
+    Add run data to json log file - most recent first.
+    
+    If a record limit is specified (gv.sd['lr']) the number of records is truncated.  
+    """
+
+    if gv.sd['lg']:
+        logline = '{'+time.strftime('"time":"%H:%M:%S","date":"%Y-%m-%d"', time.gmtime(gv.now)) + ',"mode":"' + gv.sd['mode'] + '","message":"' + msg + '"}'
+        lines = []
+        lines.append(logline + '\n')
+        log = read_log()
+        for r in log:
+            lines.append(json.dumps(r) + '\n')
+        with open('./data/log.json', 'w') as f:
+            if gv.sd['lr']:
+                f.writelines(lines[:gv.sd['lr']])
+            else:
+                f.writelines(lines)

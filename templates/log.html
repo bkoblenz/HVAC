@@ -1,4 +1,4 @@
-$def with (substation, snames, sd, records)
+$def with (substation, sd, records)
 
 $var title: $_('Irricloud Log')
 $var page: log
@@ -49,21 +49,19 @@ $code:
 
     <table class="logList">
         <tr class="log_rec">
+            <th>$_('Time')</th>
             <th>$_('Date')</th>
-            <th>$_('Start Time')</th>
-            <th>$_('Station')</th>
-            <th>$_('Duration')</th>
-            <th>$_('Program')</th>
+            <th>$_('Mode')</th>
+            <th>$_('Message')</th>
         </tr>
         $ odd = 1
         $for r in records:
             $ event = r #  ast.literal_eval(json.loads(r))
             <tr class="log_rec ${'odd' if odd else 'even'}">
+                <td align='center'>${event["time"]}</td>
                 <td align='center'>${event["date"]}</td>
-                <td align='center'>${formatTime(event["start"])}</td>
-                <td align='center'>${snames[event["station"]]}</td>
-                <td align='center'>${event["duration"]}</td>
-                <td align='center'>${event["program"]}</td>
+                <td align='center'>${event["mode"]}</td>
+                <td align='center'>${event["message"]}</td>
             </tr>
             $ odd = 1 - odd
     </table>
