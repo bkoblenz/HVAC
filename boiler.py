@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-
-# boiler.py
-#
+# !/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import time
 from calendar import timegm
@@ -44,7 +42,8 @@ def timing_loop():
     last_circ_pump = circ_pump[1]
     t = 0
     while True:
-        gv.now = timegm(time.localtime())
+        gv.nowt = time.localtime()
+        gv.now = timegm(gv.nowt)
         t += 1
         if t >= 10:
             t -= 10
