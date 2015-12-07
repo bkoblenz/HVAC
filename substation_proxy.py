@@ -1167,13 +1167,13 @@ if __name__ == "__main__":
         time.sleep(15)  # give it time to write registers
         os._exit(0) # sip_monitor to restart
     else:
-        info = subprocess.check_output("grep 10.0.0.1 /etc/network/interfaces", shell=True, stderr=subprocess.STDOUT)
-        if '10.0.0.1' not in info:
-            logger.critical('Starting boiler')
-            rc = subprocess.call("/etc/init.d/boiler start", shell=True, stderr=subprocess.STDOUT)
-        else:
+        try:
+            info = subprocess.check_output("grep 10.0.0.1 /etc/network/interfaces", shell=True, stderr=subprocess.STDOUT)
             logger.critical('Starting boiler_net_finish')
             rc = subprocess.call("/etc/init.d/boiler_net_finish start", shell=True, stderr=subprocess.STDOUT)
+        except: # have real network
+            logger.critical('Starting boiler')
+            rc = subprocess.call("/etc/init.d/boiler start", shell=True, stderr=subprocess.STDOUT)
         logger.critical('Starting boiler_monitor:')
         rc = subprocess.call("/etc/init.d/boiler_monitor start", shell=True, stderr=subprocess.STDOUT)
         logger.critical('Starting radio interface')
