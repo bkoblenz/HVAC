@@ -1,0 +1,115 @@
+2015-12-07 11:46:51,659 - boiler_net_config - CRITICAL - Starting
+2015-12-07 11:46:51,673 - boiler_net_config - INFO - create visible_networks
+2015-12-07 11:46:51,677 - boiler_net_config - DEBUG - reset networks
+2015-12-07 11:47:06,408 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 11:47:06,414 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 11:47:06,418 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 11:47:06,485 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 11:47:08,477 - boiler_net_config - INFO - update boiler
+2015-12-07 11:47:09,989 - boiler_net_config - INFO - reboot.
+2015-12-07 11:49:56,926 - boiler_net_config - CRITICAL - Starting
+2015-12-07 11:49:56,962 - boiler_net_config - INFO - create visible_networks
+2015-12-07 11:49:56,971 - boiler_net_config - DEBUG - reset networks
+2015-12-07 11:50:12,349 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 11:50:12,355 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 11:50:12,359 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 11:50:12,393 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 11:50:14,290 - boiler_net_config - INFO - update boiler
+2015-12-07 11:50:16,823 - boiler_net_config - INFO - reboot.
+2015-12-07 11:55:54,754 - boiler_net_config - CRITICAL - Starting boiler_net_finish
+2015-12-07 11:55:54,766 - boiler_net_config - DEBUG - starting hostapd and dnsmasq
+2015-12-07 11:56:57,249 - boiler_net_config - DEBUG - stopping hostapd and dnsmasq
+2015-12-07 12:14:48,741 - boiler_net_config - CRITICAL - Starting
+2015-12-07 12:14:48,758 - boiler_net_config - INFO - create visible_networks
+2015-12-07 12:14:48,761 - boiler_net_config - DEBUG - reset networks
+2015-12-07 12:15:00,501 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 12:15:00,511 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 12:15:00,514 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 12:15:00,588 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 12:15:02,725 - boiler_net_config - INFO - update boiler
+2015-12-07 12:15:04,271 - boiler_net_config - INFO - reboot.
+2015-12-07 12:16:24,211 - boiler_net_config - CRITICAL - Starting
+2015-12-07 12:16:25,113 - boiler_net_config - INFO - create visible_networks
+2015-12-07 12:16:25,118 - boiler_net_config - DEBUG - reset networks
+2015-12-07 12:16:43,224 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 12:16:43,230 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 12:16:43,234 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 12:16:43,269 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 12:16:45,724 - boiler_net_config - INFO - update boiler
+2015-12-07 12:16:47,505 - boiler_net_config - INFO - reboot.
+2015-12-07 12:18:10,318 - boiler_net_config - CRITICAL - Starting
+2015-12-07 12:18:10,348 - boiler_net_config - INFO - create visible_networks
+2015-12-07 12:18:10,354 - boiler_net_config - DEBUG - reset networks
+2015-12-07 12:18:27,329 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 12:18:27,344 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 12:18:27,348 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 12:18:27,382 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 12:18:29,277 - boiler_net_config - INFO - update boiler
+2015-12-07 12:18:30,981 - boiler_net_config - INFO - reboot.
+2015-12-07 12:34:06,968 - boiler_net_config - CRITICAL - Starting
+2015-12-07 12:34:06,986 - boiler_net_config - INFO - create visible_networks
+2015-12-07 12:34:06,989 - boiler_net_config - DEBUG - reset networks
+2015-12-07 12:34:18,597 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 12:34:18,603 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 12:34:18,607 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 12:34:18,647 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 12:34:20,360 - boiler_net_config - INFO - update boiler
+2015-12-07 12:34:21,851 - boiler_net_config - INFO - reboot.
+2015-12-07 12:36:57,883 - boiler_net_config - CRITICAL - Starting
+2015-12-07 12:36:57,900 - boiler_net_config - INFO - create visible_networks
+2015-12-07 12:36:57,903 - boiler_net_config - DEBUG - reset networks
+2015-12-07 12:37:09,795 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 12:37:09,802 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 12:37:09,805 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 12:37:09,841 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 12:37:11,552 - boiler_net_config - INFO - update boiler
+2015-12-07 12:37:13,023 - boiler_net_config - INFO - reboot.
+2015-12-07 12:53:03,133 - boiler_net_config - CRITICAL - Starting
+2015-12-07 12:53:03,150 - boiler_net_config - INFO - create visible_networks
+2015-12-07 12:53:03,152 - boiler_net_config - DEBUG - reset networks
+2015-12-07 12:53:16,687 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 12:53:16,694 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 12:53:16,697 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 12:53:16,735 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 12:53:18,750 - boiler_net_config - INFO - update boiler
+2015-12-07 12:53:20,242 - boiler_net_config - INFO - reboot.
+2015-12-07 12:54:32,080 - boiler_net_config - CRITICAL - Starting
+2015-12-07 12:54:32,098 - boiler_net_config - INFO - create visible_networks
+2015-12-07 12:54:32,101 - boiler_net_config - DEBUG - reset networks
+2015-12-07 12:54:43,933 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 12:54:43,939 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 12:54:43,943 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 12:54:43,978 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 12:54:45,782 - boiler_net_config - INFO - update boiler
+2015-12-07 12:54:47,404 - boiler_net_config - INFO - reboot.
+2015-12-07 12:55:56,612 - boiler_net_config - CRITICAL - Starting
+2015-12-07 12:55:56,631 - boiler_net_config - INFO - create visible_networks
+2015-12-07 12:55:56,633 - boiler_net_config - DEBUG - reset networks
+2015-12-07 12:56:08,480 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 12:56:08,486 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 12:56:08,490 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 12:56:08,528 - boiler_net_config - INFO - update boiler_net_finish
+2015-12-07 12:56:10,257 - boiler_net_config - INFO - update boiler
+2015-12-07 12:56:11,767 - boiler_net_config - INFO - reboot.
+2015-12-07 12:58:58,109 - boiler_net_config - CRITICAL - Starting boiler_net_finish
+2015-12-07 12:58:58,116 - boiler_net_config - DEBUG - starting hostapd and dnsmasq
+2015-12-07 13:07:44,917 - boiler_net_config - CRITICAL - Starting boiler_net_finish
+2015-12-07 13:07:44,937 - boiler_net_config - DEBUG - starting hostapd and dnsmasq
+2015-12-07 13:29:54,734 - boiler_net_config - CRITICAL - Starting
+2015-12-07 13:29:54,750 - boiler_net_config - INFO - create visible_networks
+2015-12-07 13:29:54,753 - boiler_net_config - DEBUG - reset networks
+2015-12-07 13:30:10,436 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 13:30:10,449 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 13:30:10,456 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 13:30:10,565 - boiler_net_config - INFO - reboot.
+2015-12-07 13:31:09,414 - boiler_net_config - CRITICAL - Starting boiler_net_finish
+2015-12-07 13:31:09,433 - boiler_net_config - DEBUG - starting hostapd and dnsmasq
+2015-12-07 13:33:23,211 - boiler_net_config - CRITICAL - Starting
+2015-12-07 13:33:23,229 - boiler_net_config - INFO - create visible_networks
+2015-12-07 13:33:23,230 - boiler_net_config - DEBUG - reset networks
+2015-12-07 13:33:35,832 - boiler_net_config - WARNING - Found valid wifi connection.
+2015-12-07 13:33:35,837 - boiler_net_config - INFO - establish broadcast ip
+2015-12-07 13:33:35,860 - boiler_net_config - DEBUG - write /etc/network/interfaces with wlan0 as 10.0.0.1
+2015-12-07 13:33:35,908 - boiler_net_config - INFO - reboot.
+2015-12-07 13:34:04,913 - boiler_net_config - CRITICAL - Starting boiler_net_finish
+2015-12-07 13:34:04,923 - boiler_net_config - DEBUG - starting hostapd and dnsmasq

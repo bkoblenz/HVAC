@@ -174,8 +174,8 @@ class NetConfig(web.application):
             raise web.seeother('/cn')
 
         self.logger.debug('stopping daemons before updating network interfaces')
-        if not use_eth0:
-            stop_daemons()
+#        if not use_eth0:
+#            stop_daemons()
 
         try:
             with open('/etc/network/interfaces','w') as outfile:
@@ -223,10 +223,10 @@ class NetConfig(web.application):
                 self.logger.info('success....copying back interfaces and wpa')
                 shutil.copy('/etc/network/interfaces', '/etc/network/interfaces.save')
                 shutil.copy('/etc/wpa_supplicant/wpa_supplicant.conf', '/etc/wpa_supplicant/wpa_supplicant.conf.save')
-                self.logger.info('success....enabling boiler')
-                subprocess.call(['update-rc.d', 'boiler', 'defaults'])
-                self.logger.info('disabling boiler_net_finish')
-                subprocess.call(['update-rc.d', 'boiler_net_finish', 'remove'])
+#                self.logger.info('success....enabling boiler')
+#                subprocess.call(['update-rc.d', 'boiler', 'defaults'])
+#                self.logger.info('disabling boiler_net_finish')
+#                subprocess.call(['update-rc.d', 'boiler_net_finish', 'remove'])
                 self.logger.info('rebooting')
                 subprocess.call(['reboot', '-h'])
                 exit(0)

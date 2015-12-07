@@ -1,5 +1,6 @@
 web/
 /sessions/*
+logs/
 /data/*.json
 *.pyc
 *.csv

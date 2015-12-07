@@ -110,7 +110,7 @@ if __name__ == "__main__":
                 except Exception as ex:
                     logger.exception('Could not validate/change hostapd and wpa_supplicant usage: ' + str(ex))
                 logger.info('removing boiler and restoring orig /etc/network/interfaces and /etc/wpa_supplicant/wpa_supplicant.conf')
-                subprocess.call(['update-rc.d', 'boiler', 'remove'])
+#                subprocess.call(['update-rc.d', 'boiler', 'remove'])
                 shutil.copy('/etc/network/interfaces.orig', '/etc/network/interfaces')
                 shutil.copy('/etc/wpa_supplicant/wpa_supplicant.conf.orig', '/etc/wpa_supplicant/wpa_supplicant.conf')
                 logger.info('starting boiler_net_start')
@@ -147,6 +147,7 @@ if __name__ == "__main__":
                 if '/usr/bin/python' in entry:
                     found_net_conf = entry.split()[1]
 
+            logger.info('found_boiler: ' + str(found_boiler) + ' found_net_conf: ' + str(found_net_conf))
             if found_boiler == 0:
                 boiler_net_finish_skip = 1
                 if found_net_conf == 0:
@@ -191,8 +192,8 @@ if __name__ == "__main__":
                     subprocess.call(['reboot', '-h'])
                 else:
                     boiler_net_finish_skip -= 1
-                logger.info('removing boiler_net_finish')
-                subprocess.call(['update-rc.d', 'boiler_net_finish', 'remove'])
+#                logger.info('removing boiler_net_finish')
+#                subprocess.call(['update-rc.d', 'boiler_net_finish', 'remove'])
                 logger.info('stopping boiler_net_finish')
                 subprocess.call("/etc/init.d/boiler_net_finish stop", shell=True, stderr=subprocess.STDOUT)
                 logger.info('stopped boiler_net_finish')
