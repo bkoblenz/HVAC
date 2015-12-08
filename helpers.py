@@ -317,6 +317,7 @@ def log_event(msg):
 
     if gv.sd['lg']:
         logline = '{'+time.strftime('"time":"%H:%M:%S","date":"%Y-%m-%d"', time.gmtime(gv.now)) + ',"mode":"' + gv.sd['mode'] + '","message":"' + msg + '"}'
+        gv.logger.info(logline)
         lines = []
         lines.append(logline + '\n')
         log = read_log()

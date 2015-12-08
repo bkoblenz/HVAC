@@ -704,10 +704,11 @@ class boiler_log(ProtectedPage):
         filename = 'log.csv'
         records = read_log()
 
-        data = _("Time, Date, Message") + "\n"
+        data = _("Time, Date, Mode, Message") + "\n"
         for r in records:
             event = ast.literal_eval(json.dumps(r))
-            data += event["time"] +", " + event["date"] + ", " + event["message"] + "\n"
+            data += event["time"] + ", " + event["date"] + ", " + \
+                    event["mode"] + ", " + event["message"] + "\n"
 
         web.header('Content-Type', 'text/csv')
         web.header('Content-Disposition', 'attachment; filename="'+filename+'"')

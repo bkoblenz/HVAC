@@ -147,7 +147,6 @@ if __name__ == "__main__":
                 if '/usr/bin/python' in entry:
                     found_net_conf = entry.split()[1]
 
-            logger.info('found_boiler: ' + str(found_boiler) + ' found_net_conf: ' + str(found_net_conf))
             if found_boiler == 0:
                 boiler_net_finish_skip = 1
                 if found_net_conf == 0:
