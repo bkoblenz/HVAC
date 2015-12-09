@@ -97,8 +97,6 @@ class ProxyOut(WebPage):
             slave_addr = slave_ip if slave_port == 0 or slave_port == 80 else slave_ip+':'+str(slave_port)
             slave_name = paramo['name']
             slave_proxy = paramo['proxy']
-            if cmd != 'suslj':
-                raise web.unauthorized()
         except:
             raise web.unauthorized()
 
@@ -112,11 +110,11 @@ class ProxyOut(WebPage):
                 urlcmd = 'http://' + gv.sd['master_ip']
                 if gv.sd['master_port'] != 0 and gv.sd['master_port'] != 80:
                     urlcmd += ':' + str(gv.sd['master_port'])
-                urlcmd += '/suslj?data=' + urllib.quote_plus(json.dumps(paramo))
+                urlcmd += '/' + cmd + '?data=' + urllib.quote_plus(json.dumps(paramo))
             elif gv.sd['gateway_ip'] != '':
                 urlcmd = 'http://' + gv.sd['gateway_ip']
                 urlcmd += ':9080'
-                urlcmd += '/supro?command=suslj&parameters=' + urllib.quote_plus(json.dumps(paramo))
+                urlcmd += '/supro?command=' + cmd + '&parameters=' + urllib.quote_plus(json.dumps(paramo))
             else:
                 self.logger.critical('No master or gateway for proxy')
 #            self.logger.debug('proxy_out: attempt urlcmd: ' + urlcmd)
