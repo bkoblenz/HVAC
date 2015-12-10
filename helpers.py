@@ -32,6 +32,62 @@ except ImportError:
         sys.exit()
 
 
+def reboot(wait=1, block=False):
+    """
+    Reboots the Raspberry Pi from a new thread.
+    
+    @type wait: int
+    @param wait: length of time to wait before rebooting
+    @type block: bool
+    @param block: If True, clear output and perform reboot after wait.
+        Set to True at start of thread (recursive).
+    """
+    if block:
+        from gpio_pins import set_output
+        with gv.rs_lock:
+            if gv.use_pigpio:
+                pass
+            else:
+                GPIO.cleanup()
+        time.sleep(wait)
+        try:
+            gv.logger.info(_('Rebooting...'))
+        except Exception:
+            pass
+        subprocess.Popen(['reboot'])
+    else:
+        t = Thread(target=reboot, args=(wait, True))
+        t.start()
+
+
+def poweroff(wait=1, block=False):
+    """
+    Powers off the Raspberry Pi from a new thread.
+    
+    @type wait: int or float
+    @param wait: number of seconds to wait before rebooting
+    @type block: bool
+    @param block: If True, clear output and perform reboot after wait.
+        Set to True at start of thread (recursive).
+    """
+    if block:
+        from gpio_pins import set_output
+        with gv.rs_lock:
+            if gv.use_pigpio:
+                pass
+            else:
+                GPIO.cleanup()
+        time.sleep(wait)
+        try:
+            gv.logger.info(_('Powering off...'))
+        except Exception:
+            pass
+        subprocess.Popen(['poweroff'])
+    else:
+        t = Thread(target=poweroff, args=(wait, True))
+        t.start()
+
+
 def get_ip(net=''):
     """
     Returns the IP address of 'net' if specified, otherwise 'wlan0', 'eth0', 'ppp0' whichever is found first.
