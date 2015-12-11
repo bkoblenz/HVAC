@@ -12,6 +12,7 @@ import logging
 import gv
 from helpers import *
 import web
+import spidev
 
 urls = [
 #    '/',  'webpages.home',
@@ -26,6 +27,17 @@ urls = [
 ]
 
 pi = pigpio.pi()
+spi = spidev.SpiDev()
+spi.open(0,0)
+
+# read SPI data from MCP3008 chip, 8 possible adc's (0 thru 7)
+def readadc(adcnum):
+    if ((adcnum > 7) or (adcnum < 0)):
+        return -1
+    r = spi.xfer2([1,(8+adcnum)<<4,0])
+    adcout = ((r[1]&3) << 8) + r[2]
+    return adcout
+
 zone_call = [20, pigpio.PUD_UP] # phys 38
 factory_reset = [21, pigpio.PUD_UP] # phys 40  ### RESERVED BY boiler_monitor.py
 in_pins = [zone_call]
@@ -72,24 +84,27 @@ def set_heatpump_mode(md):
     """Turn on dry3,4 for cooling; dry 2,4 for heating"""
 
     if md == 'cooling':
+#        pi.write(dry4[0], 0)
+        time.sleep(.1) # make sure 4's state is set first
         pi.write(dry1[0], 1)
         pi.write(dry2[0], 1)
 #        pi.write(dry3[0], 0)
-#        pi.write(dry4[0], 0)
         heatpump_mode = 'cooling'
         last_heatpump_on = gv.now
     elif md == 'heating':
+#        pi.write(dry4[0], 0)
+        time.sleep(.1) # make sure 4's state is set first
         pi.write(dry1[0], 1)
 #        pi.write(dry2[0], 0)
         pi.write(dry3[0], 1)
-#        pi.write(dry4[0], 0)
         heatpump_mode = 'heating'
         last_heatpump_on = gv.now
     else:
+        pi.write(dry4[0], 1)
+        time.sleep(.1) # make sure 4's state is set first
         pi.write(dry1[0], 1)
         pi.write(dry2[0], 1)
         pi.write(dry3[0], 1)
-        pi.write(dry4[0], 1)
         heatpump_mode = 'none'
         last_heatpump_off = gv.now
 
@@ -99,6 +114,7 @@ def timing_loop():
     t = 0
     temp = 108
     temp_readings = []
+    last_mode = gv.sd['mode']
     while True:
         time.sleep(1)
         gv.nowt = time.localtime()
@@ -107,10 +123,22 @@ def timing_loop():
         zc = pi.read(zone_call[0])
         boiler_md = get_boiler_mode()
         heatpump_md = get_heatpump_mode()
+
+        if gv.sd['mode'] != last_mode: # turn everything off
+            log_event('change mode.  Turn off boiler, heatpump, circ_pump')
+            if boiler_md != 'none':
+                set_boiler_mode('none')
+            if heatpump_md != 'none':
+                set_heatpump_mode('none') # keep hp pump running 2 mins
+            pi.write(circ_pump[0], 1)
+            last_zc = 1 # mark as was off
+            last_mode = gv.sd['mode']            
+
         temp_readings.append(temp)
         if len(temp_readings) > 5:
             temp_readings.pop(0)
         ave_temp = sum(temp_readings)/float(len(temp_readings))
+
         if zc != last_zc: # change in zone call
             if last_zc == 1: # was off, now on?
                 temp_readings = []
