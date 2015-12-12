@@ -126,8 +126,6 @@ def set_heatpump_pump_mode(md):
 
 actions = []
 def insert_action(when, action):
-    global actions
-
     position = 0
     for a in actions:
         if a['time'] <= when:
@@ -140,7 +138,6 @@ def process_actions():
     for i, a in enumerate(actions[:]):
         if a['time'] <= gv.now:
             action = a['action']
-            log_event('action: ' + action['what'] + ' time: ' + str(a['time']))
             try:
                 if action['what'] == 'set_heatpump_mode':
                     set_heatpump_mode(action['mode'])
