@@ -12,7 +12,8 @@ import logging
 import gv
 from helpers import *
 import web
-import spidev
+import os
+import glob
 
 urls = [
 #    '/',  'webpages.home',
@@ -27,16 +28,34 @@ urls = [
 ]
 
 pi = pigpio.pi()
-spi = spidev.SpiDev()
-spi.open(0,0)
 
-# read SPI data from MCP3008 chip, 8 possible adc's (0 thru 7)
-def readadc(adcnum):
-    if ((adcnum > 7) or (adcnum < 0)):
-        return -1
-    r = spi.xfer2([1,(8+adcnum)<<4,0])
-    adcout = ((r[1]&3) << 8) + r[2]
-    return adcout
+# see http://projects.privateeyepi.com/home/temperature-sensor-project-using-ds18b20 for temp sensor reading
+# gpio pin 23 is data point.  (See /boot/config.txt)
+os.system('modprobe w1-gpio')
+os.system('modprobe w1-therm')
+base_dir = '/sys/bus/w1/devices/'
+device_folder = glob.glob(base_dir + '28*')[0]
+device_file = device_folder + '/w1_slave'
+
+def read_temp_raw():
+    f = open(device_file, 'r')
+    lines = f.readlines()
+    f.close()
+    return lines
+
+def read_temp():
+    for i in range(5):
+        lines = read_temp_raw()
+        if lines[0].strip()[-3:] == 'YES':
+            equals_pos = lines[1].find('t=')
+            if equals_pos != -1:
+                temp_string = lines[1][equals_pos+2:len(lines[1])]
+                temp_c = float(temp_string) / 1000.0
+                return temp_c
+        time.sleep(0.2)
+    # failed to get good reading
+    log_event('cant read temperature from file: ' + device_file)
+    return -1000
 
 zone_call = [20, pigpio.PUD_UP] # phys 38
 factory_reset = [21, pigpio.PUD_UP] # phys 40  ### RESERVED BY boiler_monitor.py
@@ -52,8 +71,8 @@ circ_pump = [26, 1] # phys 37
 boiler_call = [16, 1] # phys 36
 out_pins = [circ_pump, boiler_call, dry1, dry2, dry3, dry4, close_ret, open_ret]
 
-heatpump_setpoint_h = 118
-heatpump_setpoint_c = 55
+heatpump_setpoint_h = (118-32)/1.8
+heatpump_setpoint_c = (55-32)/1.8
 last_heatpump_off = 0
 last_heatpump_on = 0
 last_boiler_off = 0
@@ -85,6 +104,7 @@ def get_heatpump_mode():
 
 def set_heatpump_mode(md):
     """Turn on dry3,4 for cooling; dry 2,4 for heating"""
+    global heatpump_mode, last_heatpump_off, last_heatpump_on
 
     if md == 'cooling':
 #        pi.write(dry4[0], 0)
@@ -177,7 +197,6 @@ def timing_loop():
     log_event('enter timing loop')
     zc = 1
     t = 0
-    temp = 108
     temp_readings = []
     last_mode = gv.sd['mode']
     # for cooling start with only return water.  For heating, only buffer tank water
@@ -206,10 +225,13 @@ def timing_loop():
             last_zc = 1 # mark as was off
             last_mode = gv.sd['mode']            
 
+        temp = read_temp()
         temp_readings.append(temp)
         if len(temp_readings) > 5:
             temp_readings.pop(0)
         ave_temp = sum(temp_readings)/float(len(temp_readings))
+        if gv.now%180 == 0:
+            log_event('ave temp: ' + str(ave_temp) + 'C ' + str(ave_temp*1.8+32) + 'F')
 
         if zc != last_zc: # change in zone call
             if last_zc == 1: # was off, now on?
@@ -239,23 +261,22 @@ def timing_loop():
                 continue
             if gv.sd['mode'] == 'Heatpump Only' or gv.sd['mode'] == 'Boiler and Heatpump' or \
                    gv.sd['mode'] == 'Heatpump then Boiler':
-                 pass # todo get temp sensor hooked up
-#                if ave_temp < heatpump_setpoint_h-6:
-#                    if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
-#                        set_heatpump_mode('heating')
-#                if ave_temp > heatpump_setpoint_h-2:
-#                    if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
-#                        set_heatpump_mode('none')
+                 if ave_temp < heatpump_setpoint_h-4:
+                     if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
+                         set_heatpump_mode('heating')
+                 if ave_temp > heatpump_setpoint_h-1.5:
+                     if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
+                         set_heatpump_mode('none')
             if gv.sd['mode'] == 'Heatpump then Boiler':
                  # todo think about turning off heatpump if too cold
-                if ave_temp < heatpump_setpoint_h-6:
+                if ave_temp < heatpump_setpoint_h-5:
                     if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
                              gv.now-last_heatpump_on > 3*60:
                         log_event('reenable boiler')
                         set_boiler_mode('heating') # for 45 mins
                         insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
             if gv.sd['mode'] == 'Heatpump Cooling':
-                 # todo dewpoint, valve, hp control
+                 # todo dewpoint, valve, hp control, bad temp readings
                  if ave_temp < dewpoint:
                      insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
 
