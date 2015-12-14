@@ -97,20 +97,14 @@ circ_pump = [26, 1] # phys 37
 boiler_call = [16, 1] # phys 36
 out_pins = [circ_pump, boiler_call, dry1, dry2, dry3, dry4, close_ret, open_ret]
 
-heatpump_setpoint_h = (118-32)/1.8
-heatpump_setpoint_c = (55-32)/1.8
-last_heatpump_off = 0
-last_heatpump_on = 0
 last_boiler_off = 0
 last_boiler_on = 0
-
+boiler_mode = 'none'
 def get_boiler_mode():
-    if boiler_call[1] == 0:
-         return 'heating'
-    return 'none'
+    return boiler_mode
 
 def set_boiler_mode(md, remove=True):
-    global last_boiler_on, last_boiler_off
+    global boiler_mode, last_boiler_on, last_boiler_off
 
     if remove:
         remove_action({'what':'set_boiler_mode', 'mode':'any'})
@@ -120,17 +114,16 @@ def set_boiler_mode(md, remove=True):
     else:
         pi.write(boiler_call[0], 1)
         last_boiler_off = gv.now
+    boiler_mode = md
     log_event('set_boiler_mode: ' + md)
 
+heatpump_setpoint_h = (118-32)/1.8
+heatpump_setpoint_c = (55-32)/1.8
+last_heatpump_off = 0
+last_heatpump_on = 0
 heatpump_mode = 'none'
-
 def get_heatpump_mode():
     return heatpump_mode
-    if dry3[1] == 0 and dry4[1] == 0:
-        return 'cooling'
-    if dry2[1] == 0 and dry4[1] == 0:
-        return 'heating'
-    return 'none'
 
 def set_heatpump_mode(md, remove=True):
     """Turn on dry3,4 for cooling; dry 2,4 for heating"""
@@ -175,7 +168,6 @@ def set_heatpump_pump_mode(md, remove=True):
     else:
         pass # todo make this work
     log_event('set_heatpump_pump_mode: ' + md)
-
 
 actions = []
 def insert_action(when, action):
@@ -284,7 +276,7 @@ def timing_loop():
             return_temp_readings.pop(0)
         ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
         ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
-        if iter == 180:
+        if iter == 600:
             iter = 0
             log_event('supply temp: ' + str(ave_supply_temp) + 'C ' + str(ave_supply_temp*1.8+32) + 'F' + '; ' + \
                       'return temp: ' + str(ave_return_temp) + 'C ' + str(ave_return_temp*1.8+32) + 'F')
@@ -409,4 +401,3 @@ if __name__ == '__main__':
 
     app.notfound = lambda: web.seeother('/')
     app.run()
-
