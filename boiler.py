@@ -224,8 +224,8 @@ def process_actions():
                         log_event('more return water: ' + str(-int(amount)) + '%')
                     else: # less return, more buffer tank
                         insert_action(gv.now+int(amount), {'what':'valve_change', 'valve_change_percent':0})
-                        pi.write(close_ret[0], 1)
-                        pi.write(open_ret[0], 0)
+                        pi.write(open_ret[0], 1)
+                        pi.write(close_ret[0], 0)
                         log_event('more buffer tank water: ' + str(int(amount)) + '%')
             except Exception as ex:
                 log_event('Unexpected action: ' + action['what'] + ' ex: ' + str(ex))
@@ -236,10 +236,10 @@ def timing_loop():
     gv.now = timegm(gv.nowt)
     log_event('enter timing loop')
     zc = 1
-    iter = 0
     supply_temp_readings = []
     return_temp_readings = []
     last_mode = gv.sd['mode']
+    last_temp_log = 0
 
     while True:
         time.sleep(1)
@@ -276,12 +276,10 @@ def timing_loop():
             return_temp_readings.pop(0)
         ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
         ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
-        if iter == 600:
-            iter = 0
+        if gv.now - last_temp_log >= 600:
+            last_temp_log = gv.now
             log_event('supply temp: ' + str(ave_supply_temp) + 'C ' + str(ave_supply_temp*1.8+32) + 'F' + '; ' + \
                       'return temp: ' + str(ave_return_temp) + 'C ' + str(ave_return_temp*1.8+32) + 'F')
-        else:
-            iter += 1
 
         if zc != last_zc: # change in zone call
             if last_zc == 1: # was off, now on?
