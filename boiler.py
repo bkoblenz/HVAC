@@ -34,28 +34,54 @@ pi = pigpio.pi()
 os.system('modprobe w1-gpio')
 os.system('modprobe w1-therm')
 base_dir = '/sys/bus/w1/devices/'
-device_folder = glob.glob(base_dir + '28*')[0]
-device_file = device_folder + '/w1_slave'
+device_folders = glob.glob(base_dir + '28*')
+device_files = []
+for df in device_folders:
+    device_files.append(df + '/w1_slave')
 
-def read_temp_raw():
-    f = open(device_file, 'r')
-    lines = f.readlines()
-    f.close()
+def read_temps_raw():
+    lines = []
+    try:
+        for device_file in device_files:
+            f = open(device_file, 'r')
+            flines = f.readlines()
+            f.close()
+            lines.append(flines)
+    except:
+        for i in range(len(device_files)):
+            lines.append([])
     return lines
 
-def read_temp():
+def read_temps():
+    temps = [-1000] * len(device_files)
     for i in range(5):
-        lines = read_temp_raw()
-        if lines[0].strip()[-3:] == 'YES':
-            equals_pos = lines[1].find('t=')
-            if equals_pos != -1:
-                temp_string = lines[1][equals_pos+2:len(lines[1])]
-                temp_c = float(temp_string) / 1000.0
-                return temp_c
+        lines = read_temps_raw()
+        found_bad = False
+        pos = 0
+        for flines in lines:
+            if temps[pos] != -1000:
+                continue
+            try:
+                if flines[0].strip()[-3:] == 'YES':
+                    equals_pos = flines[1].find('t=')
+                    if equals_pos != -1:
+                        temp_string = flines[1][equals_pos+2:len(flines[1])]
+                        temp_c = float(temp_string) / 1000.0
+                        temps[pos] = temp_c
+                    else:
+                        found_bad = True
+                else:
+                    found_bad = True
+            except Exception as ex:
+                found_bad = True
+            pos += 1
+
+        if not found_bad:
+            return temps
         time.sleep(0.2)
     # failed to get good reading
-    log_event('cant read temperature from file: ' + device_file)
-    return -1000
+    log_event('cant read temperatures')
+    return temps
 
 zone_call = [20, pigpio.PUD_UP] # phys 38
 factory_reset = [21, pigpio.PUD_UP] # phys 40  ### RESERVED BY boiler_monitor.py
@@ -83,7 +109,11 @@ def get_boiler_mode():
          return 'heating'
     return 'none'
 
-def set_boiler_mode(md):
+def set_boiler_mode(md, remove=True):
+    global last_boiler_on, last_boiler_off
+
+    if remove:
+        remove_action({'what':'set_boiler_mode', 'mode':'any'})
     if md == 'heating':
         pi.write(boiler_call[0], 0)
         last_boiler_on = gv.now
@@ -102,10 +132,12 @@ def get_heatpump_mode():
         return 'heating'
     return 'none'
 
-def set_heatpump_mode(md):
+def set_heatpump_mode(md, remove=True):
     """Turn on dry3,4 for cooling; dry 2,4 for heating"""
     global heatpump_mode, last_heatpump_off, last_heatpump_on
 
+    if remove:
+        remove_action({'what':'set_heatpump_mode', 'mode':'any'})
     if md == 'cooling':
 #        pi.write(dry4[0], 0)
         time.sleep(.1) # make sure 4's state is set first
@@ -135,8 +167,9 @@ def set_heatpump_mode(md):
         last_heatpump_off = gv.now
     log_event('set_heatpump_mode: ' + md)
 
-def set_heatpump_pump_mode(md):
-    # maybe make sure no future actions to counteract this
+def set_heatpump_pump_mode(md, remove=True):
+    if remove:
+        remove_action({'what':'set_heatpump_pump_mode', 'mode':'any'})
     if md == 'on':
         pass # todo make this work
     else:
@@ -154,17 +187,35 @@ def insert_action(when, action):
         break
     actions.insert(position, {'time':when, 'action':action})
 
+def remove_action(action):
+    """ Remove any future action that corresponds to action"""
+
+    for i, a in enumerate(actions[:]):
+        a = a['action']
+        if a['what'] != action['what']:
+            continue
+        if a['what'] in ['set_heatpump_mode', 'set_heatpump_pump_mode', 'set_boiler_mode']:
+            if action['mode'] != 'any' and a['mode'] != action['mode']:
+                continue
+            del actions[i]
+        elif action['what'] == 'set_valve_change':
+            del actions[i]
+        else:
+            log_event('remove_action: no understood action: ' + action['what'])
+
 def process_actions():
     for i, a in enumerate(actions[:]):
-        if a['time'] <= gv.now:
+        if a['time'] > gv.now: # actions are sorted in time
+            break
+        else:
             action = a['action']
             try:
                 if action['what'] == 'set_heatpump_mode':
-                    set_heatpump_mode(action['mode'])
+                    set_heatpump_mode(action['mode'], False)
                 elif action['what'] == 'set_heatpump_pump_mode':
-                    set_heatpump_pump_mode(action['mode'])
+                    set_heatpump_pump_mode(action['mode'], False)
                 elif action['what'] == 'set_boiler_mode':
-                    set_boiler_mode(action['mode'])
+                    set_boiler_mode(action['mode'], False)
                 elif action['what'] == 'valve_change':
                     amount = action['valve_change_percent']
                     amount = min(amount, 100)
@@ -187,23 +238,16 @@ def process_actions():
             except Exception as ex:
                 log_event('Unexpected action: ' + action['what'] + ' ex: ' + str(ex))
             del actions[i]
-        else:
-            break
     
-
 def timing_loop():
     gv.nowt = time.localtime()
     gv.now = timegm(gv.nowt)
     log_event('enter timing loop')
     zc = 1
-    t = 0
-    temp_readings = []
+    iter = 0
+    supply_temp_readings = []
+    return_temp_readings = []
     last_mode = gv.sd['mode']
-    # for cooling start with only return water.  For heating, only buffer tank water
-    if last_mode == 'Heatpump Cooling':
-        insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
-    else:
-        insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':100})
 
     while True:
         time.sleep(1)
@@ -225,59 +269,82 @@ def timing_loop():
             last_zc = 1 # mark as was off
             last_mode = gv.sd['mode']            
 
-        temp = read_temp()
-        temp_readings.append(temp)
-        if len(temp_readings) > 5:
-            temp_readings.pop(0)
-        ave_temp = sum(temp_readings)/float(len(temp_readings))
-        if gv.now%180 == 0:
-            log_event('ave temp: ' + str(ave_temp) + 'C ' + str(ave_temp*1.8+32) + 'F')
+        temps = read_temps()
+        # rather than tracking serial # of thermistors, just assume higher readings are supply
+        # and cooler readings are return (if heating) and vice versa if cooling
+        if gv.sd['mode'] == 'Heatpump Cooling':
+            supply_temp_readings.append(min(temps))
+            return_temp_readings.append(max(temps))
+        else:
+            supply_temp_readings.append(max(temps))
+            return_temp_readings.append(min(temps))
+        if len(supply_temp_readings) > 5:
+            supply_temp_readings.pop(0)
+        if len(return_temp_readings) > 5:
+            return_temp_readings.pop(0)
+        ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
+        ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
+        if iter == 180:
+            iter = 0
+            log_event('supply temp: ' + str(ave_supply_temp) + 'C ' + str(ave_supply_temp*1.8+32) + 'F' + '; ' + \
+                      'return temp: ' + str(ave_return_temp) + 'C ' + str(ave_return_temp*1.8+32) + 'F')
+        else:
+            iter += 1
 
         if zc != last_zc: # change in zone call
             if last_zc == 1: # was off, now on?
-                temp_readings = []
+                supply_temp_readings = []
+                return_temp_readings = []
                 log_event('zone call on; enable circ pump')
                 pi.write(circ_pump[0], 0)
-                if gv.sd['mode'] == 'Boiler Only' or gv.sd['mode'] == 'Boiler and Heatpump':
+                # for cooling or boiler operation start with only return water.  For heating, only buffer tank water
+                remove_action({'what':'set_valve_change'})
+                if gv.sd['mode'] in ['Heatpump Cooling' 'Boiler Only']:
+                    insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
+                else:
+                    insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':100})
+
+                if gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
                     log_event('zone call on; enable boiler')
                     set_boiler_mode('heating')
             else: # was on, now off
                 log_event('zone call off; disable circ pump')
                 pi.write(circ_pump[0], 1)
-                if gv.sd['mode'] == 'Boiler Only' or gv.sd['mode'] == 'Boiler and Heatpump':
+                if boiler_md == 'heating' and \
+                        gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
                     log_event('zone call off; disable boiler')
                     set_boiler_mode('none')
                 if heatpump_md == 'heating' and \
-                        (gv.sd['mode'] == 'Boiler and Heatpump' or \
-                         gv.sd['mode'] == 'Heatpump then Boiler' or \
-                         gv.sd['mode'] == 'Heatpump Only'):
+                        gv.sd['mode'] in ['Boiler and Heatpump', 'Heatpump then Boiler', 'Heatpump Only']:
                     log_event('zone call off; disable heatpump')
                     set_heatpump_mode('none')
                 if heatpump_md == 'cooling' and gv.sd['mode'] == 'Heatpump Cooling':
                     log_event('zone call off; disable heatpump')
-                    set_heatpump_mode('none') # todo keep hp pump running 2 minutes
+                    set_heatpump_mode('none')
         elif zc == 0: # still on?
-            if len(temp_readings) < 5:
+            if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
                 continue
-            if gv.sd['mode'] == 'Heatpump Only' or gv.sd['mode'] == 'Boiler and Heatpump' or \
-                   gv.sd['mode'] == 'Heatpump then Boiler':
-                 if ave_temp < heatpump_setpoint_h-4:
+            if gv.sd['mode'] in ['Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
+                 if ave_supply_temp < heatpump_setpoint_h-4:
                      if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
                          set_heatpump_mode('heating')
-                 if ave_temp > heatpump_setpoint_h-1.5:
+                 if ave_supply_temp > heatpump_setpoint_h-1.5:
                      if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
                          set_heatpump_mode('none')
             if gv.sd['mode'] == 'Heatpump then Boiler':
-                 # todo think about turning off heatpump if too cold
-                if ave_temp < heatpump_setpoint_h-5:
+                if ave_supply_temp < heatpump_setpoint_h-5 or ave_return_temp < 33:
                     if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
                              gv.now-last_heatpump_on > 3*60:
                         log_event('reenable boiler')
-                        set_boiler_mode('heating') # for 45 mins
-                        insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
+                        # Use only boiler until things shut off
+                        remove_action({'what':'set_valve_change'})
+                        insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
+                        set_heatpump_mode('none')
+                        set_boiler_mode('heating')
+#                        insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
             if gv.sd['mode'] == 'Heatpump Cooling':
                  # todo dewpoint, valve, hp control, bad temp readings
-                 if ave_temp < dewpoint:
+                 if ave_supply_temp < dewpoint:
                      insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
 
 
