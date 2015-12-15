@@ -15,6 +15,12 @@ import web
 import os
 import glob
 
+from email import Encoders
+import smtplib
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEBase import MIMEBase
+from email.MIMEText import MIMEText
+
 urls = [
 #    '/',  'webpages.home',
     '/',  'webpages.view_options',
@@ -79,9 +85,48 @@ def read_temps():
         if not found_bad:
             return temps
         time.sleep(0.2)
-    # failed to get good reading
-    log_event('cant read temperatures')
-    return temps
+
+    raise IOError, 'Cant read temperatures'
+
+def email(subject, text, attach=None):
+    """Send email with with attachments"""
+
+    recipients_list = [gv.sd['teadr'+str(i)] for i in range(2) if gv.sd['teadr'+str(i)]!='']
+    sms_recipients_list = [gv.sd['tesmsnbr'+str(i)] + '@' + sms_carrier_map[gv.sd['tesmsprovider'+str(i)]] \
+        for i in range(2) if gv.sd['tesmsnbr'+str(i)]!='']
+    if gv.sd['teuser'] != '' and gv.sd['tepassword'] != '':
+        gmail_user = gv.sd['teuser']          # User name
+        gmail_name = gv.sd['name']                          # SIP name
+        gmail_pwd = gv.sd['tepassword']           # User password
+        mailServer = smtplib.SMTP("smtp.gmail.com", 587)
+        mailServer.ehlo()
+        mailServer.starttls()
+        mailServer.ehlo()
+        mailServer.login(gmail_user, gmail_pwd)
+        #--------------
+        msg = MIMEMultipart()
+        msg['From'] = gmail_name
+        msg['Subject'] = subject
+        msg.attach(MIMEText(text))
+
+        for recip in sms_recipients_list: # can only do one text message at a time
+            msg['To'] = recip
+            gv.logger.debug('mail0 recip: ' + recip)
+            mailServer.sendmail(gmail_name, recip, msg.as_string())
+
+        if len(recipients_list) > 0:
+            recipients_str = ', '.join(recipients_list)
+            msg['To'] = recipients_str
+            gv.logger.debug('mail1 recip: ' + recipients_str)
+            if attach is not None:              # If insert attachments
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(open(attach, 'rb').read())
+                Encoders.encode_base64(part)
+                part.add_header('Content-Disposition', 'attachment; filename="%s"' % os.path.basename(attach))
+                msg.attach(part)
+            mailServer.sendmail(gmail_name, recipients_list, msg.as_string())   # name + e-mail address in the From: field
+
+        mailServer.quit()
 
 zone_call = [20, pigpio.PUD_UP] # phys 38
 factory_reset = [21, pigpio.PUD_UP] # phys 40  ### RESERVED BY boiler_monitor.py
@@ -113,6 +158,9 @@ def set_boiler_mode(md, remove=True):
         last_boiler_on = gv.now
     else:
         pi.write(boiler_call[0], 1)
+        if gv.sd['mode'] not in ['Boiler Only']: # put valve back to all buffer tank
+            remove_action({'what':'set_valve_change'})
+            insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':100})
         last_boiler_off = gv.now
     boiler_mode = md
     log_event('set_boiler_mode: ' + md)
@@ -240,6 +288,7 @@ def timing_loop():
     return_temp_readings = []
     last_mode = gv.sd['mode']
     last_temp_log = 0
+    failed_temp_read = 0
 
     while True:
         time.sleep(1)
@@ -261,19 +310,31 @@ def timing_loop():
             last_zc = 1 # mark as was off
             last_mode = gv.sd['mode']            
 
-        temps = read_temps()
-        # rather than tracking serial # of thermistors, just assume higher readings are supply
-        # and cooler readings are return (if heating) and vice versa if cooling
-        if gv.sd['mode'] == 'Heatpump Cooling':
-            supply_temp_readings.append(min(temps))
-            return_temp_readings.append(max(temps))
-        else:
-            supply_temp_readings.append(max(temps))
-            return_temp_readings.append(min(temps))
+        try:
+            temps = read_temps()
+            failed_temp_read = 0
+            # rather than tracking serial # of thermistors, just assume higher readings are supply
+            # and cooler readings are return (if heating) and vice versa if cooling
+            if gv.sd['mode'] == 'Heatpump Cooling':
+                supply_temp_readings.append(min(temps))
+                return_temp_readings.append(max(temps))
+            else:
+                supply_temp_readings.append(max(temps))
+                return_temp_readings.append(min(temps))
+        except IOError:
+            failed_temp_read += 1
+            if failed_temp_read < 60:
+                email('Heating', 'cant read temperature')
+                log_event('cant read temperatures')
+            if failed_temp_read == 60:
+                log_event('TEMPERATURE SENSOR FAILURE')
+                email('Heating', 'TEMPERATURE SENSOR FAILURE')
+
         if len(supply_temp_readings) > 5:
             supply_temp_readings.pop(0)
         if len(return_temp_readings) > 5:
             return_temp_readings.pop(0)
+        #todo deal with bad average temps
         ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
         ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
         if gv.now - last_temp_log >= 600:
@@ -315,17 +376,20 @@ def timing_loop():
             if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
                 continue
             if gv.sd['mode'] in ['Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
-                 if ave_supply_temp < heatpump_setpoint_h-4:
-                     if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
-                         set_heatpump_mode('heating')
-                 if ave_supply_temp > heatpump_setpoint_h-1.5:
-                     if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
-                         set_heatpump_mode('none')
+                if ave_supply_temp < heatpump_setpoint_h-4:
+                    if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
+                        log_event('reenable heatpump; supply: ' + str(ave_supply_temp))
+                        set_heatpump_mode('heating')
+                if ave_supply_temp > heatpump_setpoint_h-1.5:
+                    if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
+                        log_event('disable heatpump; supply: ' + str(ave_supply_temp))
+                        set_heatpump_mode('none')
             if gv.sd['mode'] == 'Heatpump then Boiler':
-                if ave_supply_temp < heatpump_setpoint_h-5 or ave_return_temp < 33:
+#                if ave_supply_temp < heatpump_setpoint_h-7 or ave_return_temp < 33:
+                if ave_supply_temp < heatpump_setpoint_h-10 or ave_return_temp < 35:
                     if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
                              gv.now-last_heatpump_on > 3*60:
-                        log_event('reenable boiler')
+                        log_event('reenable boiler; supply: ' + str(ave_supply_temp) + ' return: ' + str(ave_return_temp))
                         # Use only boiler until things shut off
                         remove_action({'what':'set_valve_change'})
                         insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})

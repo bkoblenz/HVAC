@@ -114,7 +114,7 @@ sd = {
     u"etapi":u"",
 }
 
-for i in range(5):
+for i in range(2):
     sd['teadr'+str(i)] = ''
     sd['tesmsnbr'+str(i)] = ''
     sd['tesmsprovider'+str(i)] = ''
@@ -200,8 +200,8 @@ options = [
 #    [_("Normally open"), "boolean", "rst", _("Rain sensor type."), _("Rain Sensor")],
     [_("Enable logging"), "boolean", "lg", _("Log all events."), _("Logging")],
     [_("Max log entries"), "int", "lr", _("Length of log to keep, 0=no limits."), _("Logging")],
-    [_("After program run"), "boolean", "tepr", _("Send text/email if program has run."), _("Text/Email")],
-    [_("Substation status"), "boolean", "tesu", _("Send text/email when substation status changes."), _("Text/Email")],
+#    [_("After program run"), "boolean", "tepr", _("Send text/email if program has run."), _("Text/Email")],
+#    [_("Substation status"), "boolean", "tesu", _("Send text/email when substation status changes."), _("Text/Email")],
     [_("gmail username"), "string", "teuser", _("Username from which to send texts and emails."), _("Text/Email")],
     [_("gmail password"), "password", "tepassword", _("Password associated with above username."), _("Text/Email")],
 #    [_("Enable internet weather"), "boolean", "etok", _("Adjust watering based on internet weather."), _("Weather station")],

@@ -190,7 +190,7 @@ class change_options(ProtectedPage):
                 pass
 
         for f in ['tesmsprovider', 'tesmsnbr', 'teadr']:
-            for i in range(5):
+            for i in range(2):
                 if 'o'+f+str(i) in qdict:
                     gv.sd[f+str(i)] = qdict['o'+f+str(i)]
                 else:

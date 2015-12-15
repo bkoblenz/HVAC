@@ -7,7 +7,7 @@ $code:
 	languages = i18n.languages
 	langKeys = i18n.languages.keys()
 	langKeys.sort()
-        md = gv.sd['mode']
+        sd = gv.sd
 
 <script>
     var errorCode = "${errorCode}";
@@ -101,7 +101,7 @@ $code:
             category = opt[4]
 
             if category != oldcategory:
-                output += categoryCloser + "<div class='category collapsible collapsed'><h4>" + category + "</h4>"
+                output += categoryCloser + "\n\n<div class='category collapsible collapsed'><h4>" + category + "</h4>"
                 categoryCloser = "</div>"
             oldcategory = category
             output += "<div class='option' title='" + tooltip + "'><span class='label'>" + label + ":</span>\n"
@@ -133,6 +133,31 @@ $code:
 
             output += "<span class='tooltip'>" + tooltip + "</span>\n"
             output += "</div>\n\n"
+        if oldcategory == 'Text/Email':
+            output += '<table class="option">'
+            output += "<tr>"
+            output += "<th>" + _('Email Address') + "</th>"
+            output += "<th>" + _('10 digit Phone Number') + "</th>"
+            output += "<th>" + _('Phone Provider') + "</th>"
+            output += "</tr>\n"
+            for i in range(2):
+                output += "<tr>"
+                output += '<td align="center">'
+                output += '<input name="oteadr' + str(i) + '" type="text" value="' + sd['teadr'+str(i)] + '">'
+                output += "</td>"
+                output += '<td align="center">'
+                output += '<input name="otesmsnbr' + str(i) + '" type="text" value="' + sd['tesmsnbr'+str(i)] + '">'
+                output += "</td>"
+                output += "<td>"
+                output += '<select name="otesmsprovider' + str(i) + '">'
+                for opt in ['AT&T', 'Cingular', 'Cricket', 'Nextel', 'Sprint', 'T-Mobile', 'TracFone', 'U.S. Cellular', 'Verizon', 'Virgin']:
+                    output += '<option value="' + opt + '"'
+                    output += ' selected' if sd['tesmsprovider'+str(i)]==opt else ''
+                    output += '>' + opt + '</option>'
+                output += "</select>"
+                output += "</td>"
+                output += "</tr>"
+            output += "</table>\n"
         output += categoryCloser + "<div class='category collapsible collapsed'><h4>"+_('System Restart')+"</h4>"
         output += "<div class='option'>"
         output += "&nbsp;<button id='cShutdown' class='reboot danger' title=" + json.dumps(_('Power down hardware'), ensure_ascii=False) + ">" + _('Shutdown')+"</button>"
