@@ -69,7 +69,7 @@ class WebPage(object):
 class NetConfig(web.application):
     def __init__(self, *args, **kwargs):
         web.application.__init__(self, *args, **kwargs)
-        self.logger = logging.getLogger('sip_net_config')
+        self.logger = logging.getLogger('boiler_net_config')
         gv.cputemp = get_cpu_temp()
 
     def run(self, port=80, *middleware):

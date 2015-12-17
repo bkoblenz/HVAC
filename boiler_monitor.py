@@ -58,8 +58,8 @@ if __name__ == "__main__":
     pi.set_pull_up_down(button_pin, pigpio.PUD_UP)
 
     reset_skip = 0
-    boiler_restart_skip = 1
-    boiler_net_finish_skip = 1
+    boiler_restart_skip = 3
+    boiler_net_finish_skip = 3
     last_hostapd_reset = timegm(time.localtime())
     last_ntp_reset = 0 # force immediate reset
 
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 #                subprocess.call(['update-rc.d', 'boiler', 'remove'])
                 shutil.copy('/etc/network/interfaces.orig', '/etc/network/interfaces')
                 shutil.copy('/etc/wpa_supplicant/wpa_supplicant.conf.orig', '/etc/wpa_supplicant/wpa_supplicant.conf')
-                logger.info('starting boiler_net_start')
+                logger.info('starting boiler_net_start reset')
                 rc = subprocess.call(['/usr/bin/python', '/home/pi/HVAC/boiler_net_start.py']) # leads to reboot
                 logger.debug( 'boiler_net_start rc: ' + str(rc))
                 time.sleep(10)
@@ -140,7 +140,7 @@ if __name__ == "__main__":
             found_boiler = 0
             for entry in ps_boiler_list:
                 if '/usr/bin/python' in entry:
-                    boiler_restart_skip = 1 # reset delay once boiler is running
+                    boiler_restart_skip = 3 # reset delay once boiler is running
                     found_boiler = entry.split()[1]
             found_net_conf = 0
             for entry in ps_conf_list:
@@ -148,11 +148,11 @@ if __name__ == "__main__":
                     found_net_conf = entry.split()[1]
 
             if found_boiler == 0:
-                boiler_net_finish_skip = 1
+                boiler_net_finish_skip = 3
                 if found_net_conf == 0:
                     # in case boiler is restarting and we had bad timing, give it two tries
                     if boiler_restart_skip == 0:
-                        logger.info('starting boiler_net_start')
+                        logger.info('starting boiler_net_start no boiler')
                         rc = subprocess.call(['/usr/bin/python', '/home/pi/HVAC/boiler_net_start.py']) # leads to reboot
                         logger.debug( 'boiler_net_start rc: ' + str(rc))
                         boiler_restart_skip = 10

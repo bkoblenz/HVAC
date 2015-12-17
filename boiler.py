@@ -321,22 +321,34 @@ def timing_loop():
             else:
                 supply_temp_readings.append(max(temps))
                 return_temp_readings.append(min(temps))
-        except IOError:
+        except:
             failed_temp_read += 1
             if failed_temp_read < 60:
-                email('Heating', 'cant read temperature')
-                log_event('cant read temperatures')
+                try:
+                    log_event('cant read temperatures')
+                    email('Heating', 'cant read temperature')
+                except:
+                    pass
             if failed_temp_read == 60:
-                log_event('TEMPERATURE SENSOR FAILURE')
-                email('Heating', 'TEMPERATURE SENSOR FAILURE')
+                try:
+                    log_event('TEMPERATURE SENSOR FAILURE')
+                    email('Heating', 'TEMPERATURE SENSOR FAILURE')
+                except:
+                    pass
 
         if len(supply_temp_readings) > 5:
             supply_temp_readings.pop(0)
         if len(return_temp_readings) > 5:
             return_temp_readings.pop(0)
-        #todo deal with bad average temps
-        ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
-        ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
+        try:
+            ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
+        except ZeroDivisionError:
+            ave_supply_temp = -1
+        try:
+            ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
+        except ZeroDivisionError:
+            ave_return_temp = -1
+
         if gv.now - last_temp_log >= 600:
             last_temp_log = gv.now
             log_event('supply temp: ' + str(ave_supply_temp) + 'C ' + str(ave_supply_temp*1.8+32) + 'F' + '; ' + \
