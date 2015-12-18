@@ -374,7 +374,7 @@ def timing_loop():
                 log_event('zone call off; disable circ pump')
                 pi.write(circ_pump[0], 1)
                 if boiler_md == 'heating' and \
-                        gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
+                        gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
                     log_event('zone call off; disable boiler')
                     set_boiler_mode('none')
                 if heatpump_md == 'heating' and \
