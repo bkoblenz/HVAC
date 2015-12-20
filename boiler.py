@@ -14,6 +14,7 @@ from helpers import *
 import web
 import os
 import glob
+import subprocess
 
 from email import Encoders
 import smtplib
@@ -83,10 +84,26 @@ def read_temps():
             pos += 1
 
         if not found_bad:
-            return temps
+            if len(lines) == 2 and len(temps) == 2:
+                return temps
+            else:
+                log_event('bad temps lines: ' + str(len(lines)) + ' temps: ' + str(len(temps)))
         time.sleep(0.2)
 
     raise IOError, 'Cant read temperatures'
+
+sms_carrier_map = {
+    'AT&T':'txt.att.net',
+    'Cingular':'cingularme.com',
+    'Cricket':'mmm.mycricket.com',
+    'Nextel':'messaging.nextel.com',
+    'Sprint':'messaging.sprintpcs.com',
+    'T-Mobile':'tmomail.net',
+    'TracFone':'txt.att.net',
+    'U.S. Cellular':'email.uscc.net',
+    'Verizon':'vtext.com',
+    'Virgin':'vmobl.com'
+}
 
 def email(subject, text, attach=None):
     """Send email with with attachments"""
@@ -96,7 +113,7 @@ def email(subject, text, attach=None):
         for i in range(2) if gv.sd['tesmsnbr'+str(i)]!='']
     if gv.sd['teuser'] != '' and gv.sd['tepassword'] != '':
         gmail_user = gv.sd['teuser']          # User name
-        gmail_name = gv.sd['name']                          # SIP name
+        gmail_name = gv.sd['name']            # SIP name
         gmail_pwd = gv.sd['tepassword']           # User password
         mailServer = smtplib.SMTP("smtp.gmail.com", 587)
         mailServer.ehlo()
@@ -291,127 +308,133 @@ def timing_loop():
     failed_temp_read = 0
 
     while True:
-        time.sleep(1)
-        gv.nowt = time.localtime()
-        gv.now = timegm(gv.nowt)
-        process_actions()
-        last_zc = zc
-        zc = pi.read(zone_call[0])
-        boiler_md = get_boiler_mode()
-        heatpump_md = get_heatpump_mode()
-
-        if gv.sd['mode'] != last_mode: # turn everything off
-            log_event('change mode.  Turn off boiler, heatpump, circ_pump')
-            if boiler_md != 'none':
-                set_boiler_mode('none')
-            if heatpump_md != 'none':
-                set_heatpump_mode('none')
-            pi.write(circ_pump[0], 1)
-            last_zc = 1 # mark as was off
-            last_mode = gv.sd['mode']            
-
         try:
-            temps = read_temps()
-            failed_temp_read = 0
-            # rather than tracking serial # of thermistors, just assume higher readings are supply
-            # and cooler readings are return (if heating) and vice versa if cooling
-            if gv.sd['mode'] == 'Heatpump Cooling':
-                supply_temp_readings.append(min(temps))
-                return_temp_readings.append(max(temps))
-            else:
-                supply_temp_readings.append(max(temps))
-                return_temp_readings.append(min(temps))
-        except:
-            failed_temp_read += 1
-            if failed_temp_read < 60:
-                try:
-                    log_event('cant read temperatures')
-                    email('Heating', 'cant read temperature')
-                except:
-                    pass
-            if failed_temp_read == 60:
-                try:
+            time.sleep(1)
+            gv.nowt = time.localtime()
+            gv.now = timegm(gv.nowt)
+            process_actions()
+            last_zc = zc
+            zc = pi.read(zone_call[0])
+            boiler_md = get_boiler_mode()
+            heatpump_md = get_heatpump_mode()
+
+            if gv.sd['mode'] != last_mode: # turn everything off
+                log_event('change mode.  Turn off boiler, heatpump, circ_pump')
+                if boiler_md != 'none':
+                    set_boiler_mode('none')
+                if heatpump_md != 'none':
+                    set_heatpump_mode('none')
+                pi.write(circ_pump[0], 1)
+                last_zc = 1 # mark as was off
+                last_mode = gv.sd['mode']            
+
+            try:
+                temps = read_temps()
+                failed_temp_read = 0
+                # rather than tracking serial # of thermistors, just assume higher readings are supply
+                # and cooler readings are return (if heating) and vice versa if cooling
+                if gv.sd['mode'] == 'Heatpump Cooling':
+                    supply_temp_readings.append(min(temps))
+                    return_temp_readings.append(max(temps))
+                else:
+                    supply_temp_readings.append(max(temps))
+                    return_temp_readings.append(min(temps))
+            except:
+                failed_temp_read += 1
+                if failed_temp_read < 300:
+                    if failed_temp_read % 10 == 1:
+                        log_event('cant read temperatures.  Failcount: ' + str(failed_temp_read))
+                elif failed_temp_read == 300:
                     log_event('TEMPERATURE SENSOR FAILURE')
                     email('Heating', 'TEMPERATURE SENSOR FAILURE')
+                elif failed_temp_read % 300 == 0:
+                    log_event('Ongoing temp failure.  Failcount: ' + str(failed_temp_read))
+
+            if len(supply_temp_readings) > 5:
+                supply_temp_readings.pop(0)
+            if len(return_temp_readings) > 5:
+                return_temp_readings.pop(0)
+            try:
+                ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
+            except ZeroDivisionError:
+                ave_supply_temp = -1
+            try:
+                ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
+            except ZeroDivisionError:
+                ave_return_temp = -1
+
+            if gv.now - last_temp_log >= 600:
+                last_temp_log = gv.now
+                log_event('supply temp: ' + str(ave_supply_temp) + 'C ' + str(ave_supply_temp*1.8+32) + 'F' + '; ' + \
+                          'return temp: ' + str(ave_return_temp) + 'C ' + str(ave_return_temp*1.8+32) + 'F')
+
+            if zc != last_zc: # change in zone call
+                if last_zc == 1: # was off, now on?
+                    supply_temp_readings = []
+                    return_temp_readings = []
+                    log_event('zone call on; enable circ pump')
+                    pi.write(circ_pump[0], 0)
+                    # for cooling or boiler operation start with only return water.  For heating, only buffer tank water
+                    remove_action({'what':'set_valve_change'})
+                    if gv.sd['mode'] in ['Heatpump Cooling' 'Boiler Only']:
+                        insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
+                    else:
+                        insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':100})
+
+                    if gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
+                        log_event('zone call on; enable boiler')
+                        set_boiler_mode('heating')
+                else: # was on, now off
+                    log_event('zone call off; disable circ pump')
+                    pi.write(circ_pump[0], 1)
+                    if boiler_md == 'heating' and \
+                            gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
+                        log_event('zone call off; disable boiler')
+                        set_boiler_mode('none')
+                    if heatpump_md == 'heating' and \
+                            gv.sd['mode'] in ['Boiler and Heatpump', 'Heatpump then Boiler', 'Heatpump Only']:
+                        log_event('zone call off; disable heatpump')
+                        set_heatpump_mode('none')
+                    if heatpump_md == 'cooling' and gv.sd['mode'] == 'Heatpump Cooling':
+                        log_event('zone call off; disable heatpump')
+                        set_heatpump_mode('none')
+            elif zc == 0: # still on?
+                if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
+                    continue
+                if gv.sd['mode'] in ['Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
+                    if ave_supply_temp < heatpump_setpoint_h-4:
+                        if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
+                            log_event('reenable heatpump; supply: ' + str(ave_supply_temp))
+                            set_heatpump_mode('heating')
+                    if ave_supply_temp > heatpump_setpoint_h-1.5:
+                        if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
+                            log_event('disable heatpump; supply: ' + str(ave_supply_temp))
+                            set_heatpump_mode('none')
+                if gv.sd['mode'] == 'Heatpump then Boiler':
+#                    if ave_supply_temp < heatpump_setpoint_h-7 or ave_return_temp < 33:
+                    if ave_supply_temp < heatpump_setpoint_h-10 or ave_return_temp < 35:
+                        if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
+                                 gv.now-last_heatpump_on > 3*60:
+                            log_event('reenable boiler; supply: ' + str(ave_supply_temp) + ' return: ' + str(ave_return_temp))
+                            # Use only boiler until things shut off
+                            remove_action({'what':'set_valve_change'})
+                            insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
+                            set_heatpump_mode('none')
+                            set_boiler_mode('heating')
+#                            insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
+                if gv.sd['mode'] == 'Heatpump Cooling':
+                     # todo dewpoint, valve, hp control, bad temp readings
+                     if ave_supply_temp < dewpoint:
+                         insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
+        except Exception as ex:
+            print 'Exception: ', ex
+            try:
+                log_event('exception: ' + str(ex))
+            except:
+                try:
+                    subprocess.call(['touch', 'EXCEPTION'])
                 except:
                     pass
-
-        if len(supply_temp_readings) > 5:
-            supply_temp_readings.pop(0)
-        if len(return_temp_readings) > 5:
-            return_temp_readings.pop(0)
-        try:
-            ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
-        except ZeroDivisionError:
-            ave_supply_temp = -1
-        try:
-            ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
-        except ZeroDivisionError:
-            ave_return_temp = -1
-
-        if gv.now - last_temp_log >= 600:
-            last_temp_log = gv.now
-            log_event('supply temp: ' + str(ave_supply_temp) + 'C ' + str(ave_supply_temp*1.8+32) + 'F' + '; ' + \
-                      'return temp: ' + str(ave_return_temp) + 'C ' + str(ave_return_temp*1.8+32) + 'F')
-
-        if zc != last_zc: # change in zone call
-            if last_zc == 1: # was off, now on?
-                supply_temp_readings = []
-                return_temp_readings = []
-                log_event('zone call on; enable circ pump')
-                pi.write(circ_pump[0], 0)
-                # for cooling or boiler operation start with only return water.  For heating, only buffer tank water
-                remove_action({'what':'set_valve_change'})
-                if gv.sd['mode'] in ['Heatpump Cooling' 'Boiler Only']:
-                    insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
-                else:
-                    insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':100})
-
-                if gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
-                    log_event('zone call on; enable boiler')
-                    set_boiler_mode('heating')
-            else: # was on, now off
-                log_event('zone call off; disable circ pump')
-                pi.write(circ_pump[0], 1)
-                if boiler_md == 'heating' and \
-                        gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
-                    log_event('zone call off; disable boiler')
-                    set_boiler_mode('none')
-                if heatpump_md == 'heating' and \
-                        gv.sd['mode'] in ['Boiler and Heatpump', 'Heatpump then Boiler', 'Heatpump Only']:
-                    log_event('zone call off; disable heatpump')
-                    set_heatpump_mode('none')
-                if heatpump_md == 'cooling' and gv.sd['mode'] == 'Heatpump Cooling':
-                    log_event('zone call off; disable heatpump')
-                    set_heatpump_mode('none')
-        elif zc == 0: # still on?
-            if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
-                continue
-            if gv.sd['mode'] in ['Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
-                if ave_supply_temp < heatpump_setpoint_h-4:
-                    if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
-                        log_event('reenable heatpump; supply: ' + str(ave_supply_temp))
-                        set_heatpump_mode('heating')
-                if ave_supply_temp > heatpump_setpoint_h-1.5:
-                    if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
-                        log_event('disable heatpump; supply: ' + str(ave_supply_temp))
-                        set_heatpump_mode('none')
-            if gv.sd['mode'] == 'Heatpump then Boiler':
-#                if ave_supply_temp < heatpump_setpoint_h-7 or ave_return_temp < 33:
-                if ave_supply_temp < heatpump_setpoint_h-10 or ave_return_temp < 35:
-                    if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
-                             gv.now-last_heatpump_on > 3*60:
-                        log_event('reenable boiler; supply: ' + str(ave_supply_temp) + ' return: ' + str(ave_return_temp))
-                        # Use only boiler until things shut off
-                        remove_action({'what':'set_valve_change'})
-                        insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
-                        set_heatpump_mode('none')
-                        set_boiler_mode('heating')
-#                        insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
-            if gv.sd['mode'] == 'Heatpump Cooling':
-                 # todo dewpoint, valve, hp control, bad temp readings
-                 if ave_supply_temp < dewpoint:
-                     insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
 
 
 class BoilerApp(web.application):
