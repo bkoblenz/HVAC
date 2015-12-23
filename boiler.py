@@ -55,8 +55,10 @@ def read_temps_raw():
             f.close()
             lines.append(flines)
     except:
-        for i in range(len(device_files)):
-            lines.append([])
+        pass
+
+    for i in range(len(device_files)-len(lines)):
+        lines.append([])
     return lines
 
 def read_temps():
@@ -64,8 +66,9 @@ def read_temps():
     for i in range(5):
         lines = read_temps_raw()
         found_bad = False
-        pos = 0
+        pos = -1
         for flines in lines:
+            pos += 1
             if temps[pos] != -1000:
                 continue
             try:
@@ -81,10 +84,11 @@ def read_temps():
                     found_bad = True
             except Exception as ex:
                 found_bad = True
-            pos += 1
 
         if not found_bad:
             if len(lines) == 2 and len(temps) == 2:
+                if temps[0] < 0 or temps[1] < 0:
+                    log_event('negative temps[0]: ' + str(temps[0]) + ' temps[1]: ' + str(temps[1]))
                 return temps
             else:
                 log_event('bad temps lines: ' + str(len(lines)) + ' temps: ' + str(len(temps)))
@@ -333,12 +337,16 @@ def timing_loop():
                 failed_temp_read = 0
                 # rather than tracking serial # of thermistors, just assume higher readings are supply
                 # and cooler readings are return (if heating) and vice versa if cooling
+                min_temp = min(temps)
+                max_temp = max(temps)
+                if min_temp < 0 or max_temp < 0:
+                    log_event('Bad min/max temps.  min: ' + str(min_temp) + ' max: ' + str(max_temp))
                 if gv.sd['mode'] == 'Heatpump Cooling':
-                    supply_temp_readings.append(min(temps))
-                    return_temp_readings.append(max(temps))
+                    supply_temp_readings.append(min_temp)
+                    return_temp_readings.append(max_temp)
                 else:
-                    supply_temp_readings.append(max(temps))
-                    return_temp_readings.append(min(temps))
+                    supply_temp_readings.append(max_temp)
+                    return_temp_readings.append(min_temp)
             except:
                 failed_temp_read += 1
                 if failed_temp_read < 300:
@@ -356,10 +364,14 @@ def timing_loop():
                 return_temp_readings.pop(0)
             try:
                 ave_supply_temp = sum(supply_temp_readings)/float(len(supply_temp_readings))
+                if ave_supply_temp < 0:
+                    log_event('Bad ave_supply_temp: ' + str(ave_supply_temp))
             except ZeroDivisionError:
                 ave_supply_temp = -1
             try:
                 ave_return_temp = sum(return_temp_readings)/float(len(return_temp_readings))
+                if ave_return_temp < 0:
+                    log_event('Bad ave_return_temp: ' + str(ave_return_temp))
             except ZeroDivisionError:
                 ave_return_temp = -1
 
