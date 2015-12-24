@@ -181,7 +181,7 @@ def set_boiler_mode(md, remove=True):
         pi.write(boiler_call[0], 1)
         if gv.sd['mode'] not in ['Boiler Only']: # put valve back to all buffer tank
             remove_action({'what':'set_valve_change'})
-            insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':100})
+            insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
         last_boiler_off = gv.now
     boiler_mode = md
     log_event('set_boiler_mode: ' + md)
@@ -277,7 +277,7 @@ def process_actions():
                     set_heatpump_pump_mode(action['mode'], False)
                 elif action['what'] == 'set_boiler_mode':
                     set_boiler_mode(action['mode'], False)
-                elif action['what'] == 'valve_change':
+                elif action['what'] == 'set_valve_change':
                     amount = action['valve_change_percent']
                     amount = min(amount, 100)
                     amount = max(amount, -100)
@@ -287,12 +287,12 @@ def process_actions():
                         pi.write(open_ret[0], 1)
                     elif amount < 0: # more return, less buffer tank
                         # assume 100 seconds to fully move valve, so each amount request is actually a second
-                        insert_action(gv.now-int(amount), {'what':'valve_change', 'valve_change_percent':0})
+                        insert_action(gv.now-int(amount), {'what':'set_valve_change', 'valve_change_percent':0})
                         pi.write(close_ret[0], 1)
                         pi.write(open_ret[0], 0)
                         log_event('more return water: ' + str(-int(amount)) + '%')
                     else: # less return, more buffer tank
-                        insert_action(gv.now+int(amount), {'what':'valve_change', 'valve_change_percent':0})
+                        insert_action(gv.now+int(amount), {'what':'set_valve_change', 'valve_change_percent':0})
                         pi.write(open_ret[0], 1)
                         pi.write(close_ret[0], 0)
                         log_event('more buffer tank water: ' + str(int(amount)) + '%')
@@ -389,9 +389,9 @@ def timing_loop():
                     # for cooling or boiler operation start with only return water.  For heating, only buffer tank water
                     remove_action({'what':'set_valve_change'})
                     if gv.sd['mode'] in ['Heatpump Cooling' 'Boiler Only']:
-                        insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
+                        insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                     else:
-                        insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':100})
+                        insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
 
                     if gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
                         log_event('zone call on; enable boiler')
@@ -428,16 +428,16 @@ def timing_loop():
                         if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
                                  gv.now-last_heatpump_on > 3*60:
                             log_event('reenable boiler; supply: ' + str(ave_supply_temp) + ' return: ' + str(ave_return_temp))
-                            # Use only boiler until things shut off
+                            # Use only boiler for a while
                             remove_action({'what':'set_valve_change'})
-                            insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
+                            insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                             set_heatpump_mode('none')
                             set_boiler_mode('heating')
-#                            insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
+                            insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
                 if gv.sd['mode'] == 'Heatpump Cooling':
                      # todo dewpoint, valve, hp control, bad temp readings
                      if ave_supply_temp < dewpoint:
-                         insert_action(gv.now, {'what':'valve_change', 'valve_change_percent':-100})
+                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
         except Exception as ex:
             print 'Exception: ', ex
             try:
