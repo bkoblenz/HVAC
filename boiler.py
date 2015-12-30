@@ -264,7 +264,17 @@ def remove_action(action):
         else:
             log_event('remove_action: no understood action: ' + action['what'])
 
+logged_internal_error = False
 def process_actions():
+    global logged_internal_error
+
+    if len(actions) > 10 and not logged_internal_error:
+        email('Internal error', 'Action list likely too long len: ' + str(len(actions)))
+        log_event('Action list likely too long len: ' + str(len(actions)))
+        for a in actions:
+            log_event('action time: ' + str(a['time']) + ' what: ' + a['action']['what'])
+        logged_internal_error = True
+
     for i, a in enumerate(actions[:]):
         if a['time'] > gv.now: # actions are sorted in time
             break
