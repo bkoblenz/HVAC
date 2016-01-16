@@ -1,6 +1,9 @@
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# see http://electronics.ozonejunkie.com/2014/12/opening-up-the-usr-htw-wifi-temperature-humidity-sensor/    (10.10.100.254 default)
+import socket
+import math
 import time
 from calendar import timegm
 import pigpio
@@ -15,6 +18,7 @@ import web
 import os
 import glob
 import subprocess
+import binascii
 
 from email import Encoders
 import smtplib
@@ -148,6 +152,99 @@ def email(subject, text, attach=None):
             mailServer.sendmail(gmail_name, recipients_list, msg.as_string())   # name + e-mail address in the From: field
 
         mailServer.quit()
+
+b = 17.67 # see wikipedia
+c = 243.5
+def gamma(t,rh):
+    return (b*t / (c+t)) + math.log(rh/100.0)
+
+def dewpoint(t,rh):
+    g = gamma(t,rh)
+    return c*g / (b-g)
+
+TCP_ADDR = '192.168.1.107'
+TCP_PORT = 8899
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def connect_socket():
+    global s
+
+    s.close()
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(30)
+    while True:
+        try:
+            s.connect((TCP_ADDR, TCP_PORT))
+            break
+        except:
+#            log_event('Retry connect...')
+            time.sleep(10)
+
+connect_socket()
+
+PACK_LEN = 11
+bytes_data = [0] * PACK_LEN
+def get_temp_hum():
+    try:
+        str_data = s.recv(PACK_LEN)
+        hex_data = str_data.encode('hex')
+        if len(str_data) == 0:  # disconnected by remote.  Will never return data in the future
+            connect_socket()
+            return get_temp_hum()
+
+        for n in range(0,PACK_LEN): #convert to array of bytes
+            lower = 2*n
+            upper = lower + 2
+            bytes_data[n] = int(hex_data[lower:upper],16)
+
+        humid =  (((bytes_data[6])<<8)+(bytes_data[7]))/10.0
+        temp =  (((((bytes_data[8])&0x7F)<<8)+(bytes_data[9]))/10.0)
+    
+        if int(bytes_data[8]) & 0x80: #invert temp if sign bit is set
+            temp = -1.0* temp
+    
+#        checksum = (uint(sum(bytes_data[0:10])) & 0xFF)+1
+        checksum = 0
+        for i in range(PACK_LEN-1):
+            checksum += bytes_data[i]
+
+        checksum &= 0xFF
+        checksum += 1
+ 
+        if checksum == bytes_data[10]:
+            return (temp, humid)
+        raise ValueError,'Invalid Checksum'
+
+    except:
+        raise
+
+dew = 25
+failed_dewpoint_read = 0
+def dewpoint_loop():
+    global dew, failed_dewpoint_read
+
+    nowt = time.localtime()
+    now = timegm(nowt)
+    log_event('enter dewpoint loop')
+
+    while True:
+        try:
+            time.sleep(60)
+            (dew_temp, dew_hum) = get_temp_hum()
+            failed_dewpoint_read = 0
+            dew = dewpoint(dew_temp, dew_hum)
+        except Exception as ex:
+            dew = 25
+            failed_dewpoint_read += 1
+            if failed_dewpoint_read < 10:
+                if failed_dewpoint_read % 10 == 1:
+                    log_event('cant read dewpoint.  Exception: ' + str(ex) + ' Failcount: ' + str(failed_dewpoint_read))
+            elif failed_dewpoint_read == 10:
+                log_event('DEWPOINT SENSOR FAILURE')
+                email('Heating', 'DEWPOINT SENSOR FAILURE')
+            elif failed_dewpoint_read % 10 == 0:
+                log_event('Ongoing dewpoint failure.  Failcount: ' + str(failed_dewpoint_read))
+
 
 zone_call = [20, pigpio.PUD_UP] # phys 38
 factory_reset = [21, pigpio.PUD_UP] # phys 40  ### RESERVED BY boiler_monitor.py
@@ -320,6 +417,7 @@ def timing_loop():
     last_mode = gv.sd['mode']
     last_temp_log = 0
     failed_temp_read = 0
+    last_dewpoint_adjust = 0
 
     while True:
         try:
@@ -385,10 +483,16 @@ def timing_loop():
             except ZeroDivisionError:
                 ave_return_temp = -1
 
-            if gv.now - last_temp_log >= 600:
+            if gv.now - last_temp_log >= 60:
                 last_temp_log = gv.now
-                log_event('supply temp: ' + str(ave_supply_temp) + 'C ' + str(ave_supply_temp*1.8+32) + 'F' + '; ' + \
-                          'return temp: ' + str(ave_return_temp) + 'C ' + str(ave_return_temp*1.8+32) + 'F')
+                ast_c = ave_supply_temp
+                ast_f = ast_c*1.8 + 32
+                art_c = ave_return_temp
+                art_f = art_c*1.8 + 32
+                dew_f = dew*1.8 + 32
+                log_event('supply temp: ' + "{0:.2f}".format(ast_c) + 'C ' + "{0:.2f}".format(ast_f) + 'F' + '; ' + \
+                          'return temp: ' + "{0:.2f}".format(art_c) + 'C ' + "{0:.2f}".format(art_f) + 'F' + '; ' + \
+                          'dewpoint: ' + "{0:.2f}".format(dew) + 'C ' + "{0:.2f}".format(dew_f) + 'F')
 
             if zc != last_zc: # change in zone call
                 if last_zc == 1: # was off, now on?
@@ -444,12 +548,29 @@ def timing_loop():
                             set_heatpump_mode('none')
                             set_boiler_mode('heating')
                             insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
-                if gv.sd['mode'] == 'Heatpump Cooling':
-                     # todo dewpoint, valve, hp control, bad temp readings
-                     if ave_supply_temp < dewpoint:
+                if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 30:
+                     dewpoint_margin = 1.5
+                     min_supply = 13
+                     max_supply = 20
+                     target = Math.max(dew+dewpoint_margin+1, (min_supply+max_supply)/2.)
+                     # todo test dewpoint, hp control
+                     if ave_supply_temp <= dew+dewpoint_margin:
+                         remove_action({'what':'set_valve_change'})
                          insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
+                         log_event('Close valve to avoid condensation.  Dewpoint: ' + "{0:.2f}".format(dew) + 'C Supply Temp: ' + "{0:.2f}".format(ave_supply_temp) + 'C')
+                         last_dewpoint_adjust = gv.now
+                     elif target < ave_supply_temp + 1:
+                         remove_action({'what':'set_valve_change'})
+                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':5})
+                         gv.logger.debug('More buffer tank water')
+                         last_dewpoint_adjust = gv.now
+                     elif target > ave_supply_temp + 1:
+                         remove_action({'what':'set_valve_change'})
+                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-5})
+                         gv.logger.debug('More return water')
+                         last_dewpoint_adjust = gv.now
         except Exception as ex:
-            print 'Exception: ', ex
+#            print 'Exception: ', ex
             try:
                 log_event('exception: ' + str(ex))
             except:
@@ -514,6 +635,9 @@ if __name__ == '__main__':
         pin = pin_e[0]
         pi.set_mode(pin, pigpio.OUTPUT)
         pi.write(pin, pin_e[1])
+
+    gv.logger.debug('Starting dewpoint thread')
+    thread.start_new_thread(dewpoint_loop, ())
 
     gv.logger.debug('Starting main thread')
     thread.start_new_thread(timing_loop, ())
