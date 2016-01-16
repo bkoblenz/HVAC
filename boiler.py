@@ -483,7 +483,7 @@ def timing_loop():
             except ZeroDivisionError:
                 ave_return_temp = -1
 
-            if gv.now - last_temp_log >= 60:
+            if gv.now - last_temp_log >= 600:
                 last_temp_log = gv.now
                 ast_c = ave_supply_temp
                 ast_f = ast_c*1.8 + 32
