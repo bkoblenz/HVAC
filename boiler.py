@@ -172,7 +172,7 @@ def connect_socket():
     s.close()
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(30)
-    while True:
+    for i in range(60):
         try:
             s.connect((TCP_ADDR, TCP_PORT))
             break
@@ -189,8 +189,7 @@ def get_temp_hum():
         str_data = s.recv(PACK_LEN)
         hex_data = str_data.encode('hex')
         if len(str_data) == 0:  # disconnected by remote.  Will never return data in the future
-            connect_socket()
-            return get_temp_hum()
+            raise ValueError, 'No Data'
 
         for n in range(0,PACK_LEN): #convert to array of bytes
             lower = 2*n
@@ -216,6 +215,7 @@ def get_temp_hum():
         raise ValueError,'Invalid Checksum'
 
     except:
+        connect_socket() # reestablish connection
         raise
 
 dew = 25
