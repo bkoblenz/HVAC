@@ -458,7 +458,7 @@ def timing_loop():
             except:
                 failed_temp_read += 1
                 if failed_temp_read < 300:
-                    if failed_temp_read % 10 == 1:
+                    if failed_temp_read % 10 == 2: # first exception should get cleared by reconnect and is normal
                         log_event('cant read temperatures.  Failcount: ' + str(failed_temp_read))
                 elif failed_temp_read == 300:
                     log_event('TEMPERATURE SENSOR FAILURE')
