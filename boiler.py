@@ -547,7 +547,7 @@ def timing_loop():
                             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                             set_heatpump_mode('none')
                             set_boiler_mode('heating')
-                            insert_action(gv.now+30*60, {'what':'set_boiler_mode', 'mode':'none'})
+                            insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
                 if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 30:
                      dewpoint_margin = 1.5
                      min_supply = 13
