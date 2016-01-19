@@ -237,7 +237,7 @@ def dewpoint_loop():
             dew = 25
             failed_dewpoint_read += 1
             if failed_dewpoint_read < 10:
-                if failed_dewpoint_read % 10 == 1:
+                if failed_dewpoint_read % 10 == 2: # first exception should get cleared by reconnect and is normal
                     log_event('cant read dewpoint.  Exception: ' + str(ex) + ' Failcount: ' + str(failed_dewpoint_read))
             elif failed_dewpoint_read == 10:
                 log_event('DEWPOINT SENSOR FAILURE')
@@ -458,7 +458,7 @@ def timing_loop():
             except:
                 failed_temp_read += 1
                 if failed_temp_read < 300:
-                    if failed_temp_read % 10 == 2: # first exception should get cleared by reconnect and is normal
+                    if failed_temp_read % 10 == 1: # first exception should get cleared by reconnect and is normal
                         log_event('cant read temperatures.  Failcount: ' + str(failed_temp_read))
                 elif failed_temp_read == 300:
                     log_event('TEMPERATURE SENSOR FAILURE')
@@ -547,7 +547,7 @@ def timing_loop():
                             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                             set_heatpump_mode('none')
                             set_boiler_mode('heating')
-                            insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
+                            insert_action(gv.now+30*60, {'what':'set_boiler_mode', 'mode':'none'})
                 if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 30:
                      dewpoint_margin = 1.5
                      min_supply = 13
