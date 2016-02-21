@@ -284,7 +284,6 @@ def set_boiler_mode(md, remove=True):
     log_event('set_boiler_mode: ' + md)
 
 heatpump_setpoint_h = (118-32)/1.8
-heatpump_setpoint_c = (55-32)/1.8
 last_heatpump_off = 0
 last_heatpump_on = 0
 heatpump_mode = 'none'
@@ -324,7 +323,7 @@ def set_heatpump_mode(md, remove=True):
         heatpump_mode = 'none'
         insert_action(gv.now+2*60, {'what':'set_heatpump_pump_mode', 'mode':'off'})
         last_heatpump_off = gv.now
-    log_event('set_heatpump_mode: ' + md)
+#    log_event('set_heatpump_mode: ' + md)
 
 def set_heatpump_pump_mode(md, remove=True):
     if remove:
@@ -333,7 +332,7 @@ def set_heatpump_pump_mode(md, remove=True):
         pass # todo make this work
     else:
         pass # todo make this work
-    log_event('set_heatpump_pump_mode: ' + md)
+#    log_event('set_heatpump_pump_mode: ' + md)
 
 actions = []
 def insert_action(when, action):
@@ -528,20 +527,20 @@ def timing_loop():
                 if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
                     continue
                 if gv.sd['mode'] in ['Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
-                    if ave_supply_temp < heatpump_setpoint_h-4:
+                    if ave_supply_temp < heatpump_setpoint_h-5:
                         if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
-                            log_event('reenable heatpump; supply: ' + str(ave_supply_temp))
+#                            log_event('reenable heatpump; supply: ' + str(ave_supply_temp))
                             set_heatpump_mode('heating')
-                    if ave_supply_temp > heatpump_setpoint_h-1.5:
+                    if ave_supply_temp > heatpump_setpoint_h-2:
                         if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
-                            log_event('disable heatpump; supply: ' + str(ave_supply_temp))
+#                            log_event('disable heatpump; supply: ' + str(ave_supply_temp))
                             set_heatpump_mode('none')
                 if gv.sd['mode'] == 'Heatpump then Boiler':
 #                    if ave_supply_temp < heatpump_setpoint_h-7 or ave_return_temp < 33:
-                    if ave_supply_temp < heatpump_setpoint_h-10 or ave_return_temp < 35:
+                    if ave_supply_temp < heatpump_setpoint_h-12 or ave_return_temp < 33:
                         if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
                                  gv.now-last_heatpump_on > 3*60:
-                            log_event('reenable boiler; supply: ' + str(ave_supply_temp) + ' return: ' + str(ave_return_temp))
+#                            log_event('reenable boiler; supply: ' + str(ave_supply_temp) + ' return: ' + str(ave_return_temp))
                             # Use only boiler for a while
                             remove_action({'what':'set_valve_change'})
                             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
