@@ -155,8 +155,8 @@ def update_upnp(cur_ip, deletes=[],adds=[]):
             #gv.logger.info('upnp deleted port : ' + str(external_port))
             upnp_out = subprocess.check_output("upnpc " + router_ref + " -a " + cur_ip + ' ' + str(internal_port) + ' ' + str(external_port) + " TCP", shell=True)
             gv.logger.info('upnp added ip: ' + cur_ip + ' internal port: ' + str(internal_port) + ' external port: ' + str(external_port))
-            upnp_out = subprocess.check_output("upnpc " + router_ref + " -l | grep TCP", shell=True)
-            gv.logger.debug('upnp -l: ' + upnp_out)
+#            upnp_out = subprocess.check_output("upnpc " + router_ref + " -l | grep TCP", shell=True)
+#            gv.logger.debug('upnp -l: ' + upnp_out)
         except Exception as ex:
             gv.logger.info('upnp could not add internal port: ' + str(internal_port) + ' for external port: ' + str(external_port) + ' Exception: ' + str(ex))
 

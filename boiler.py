@@ -232,10 +232,13 @@ def dewpoint_loop():
         try:
             time.sleep(60)
             (dew_temp, dew_hum) = get_temp_hum()
+            print 'dew_temp: ', dew_temp, ' dew_hum: ', dew_hum
             failed_dewpoint_read = 0
             dew = dewpoint(dew_temp, dew_hum)
+            print 'dew: ', dew
         except Exception as ex:
-            dew = 25
+            if failed_dewpoint_read > 5: # a few failures before panicing
+                dew = 25
             failed_dewpoint_read += 1
             if failed_dewpoint_read < 10:
                 if failed_dewpoint_read % 10 == 2: # first exception should get cleared by reconnect and is normal
@@ -422,6 +425,13 @@ def timing_loop():
     check_and_update_upnp()
     last_upnp_refresh = gv.now
 
+    # one_way_cooling_adjustments tracks the direction of the last valve change and how many changes we have made
+    # in that direction without going the other direction.  This stops us from constantly moving the valve when the
+    # heatpump is off or we cannot achieve our target.
+    max_cooling_adjustments = 25
+    min_cooling_adjustments = -max_cooling_adjustments
+    one_way_cooling_adjustments = 0
+
     while True:
         try:
             time.sleep(1)
@@ -510,8 +520,10 @@ def timing_loop():
                     pi.write(circ_pump[0], 0)
                     # for cooling or boiler operation start with only return water.  For heating, only buffer tank water
                     remove_action({'what':'set_valve_change'})
-                    if gv.sd['mode'] in ['Heatpump Cooling' 'Boiler Only']:
+                    if gv.sd['mode'] in ['Heatpump Cooling', 'Boiler Only']:
                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
+                        if gv.sd['mode'] == 'Heatpump Cooling':
+                            one_way_cooling_adjustments = 0
                     else:
                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
 
@@ -556,27 +568,42 @@ def timing_loop():
                             set_heatpump_mode('none')
                             set_boiler_mode('heating')
                             insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
-                if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 30:
+                if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
                      dewpoint_margin = 1.5
                      min_supply = 13
                      max_supply = 20
-                     target = Math.max(dew+dewpoint_margin+1, (min_supply+max_supply)/2.)
+                     target = max(dew+dewpoint_margin+1, (min_supply+max_supply)/2.)
                      # todo test dewpoint, hp control
                      if ave_supply_temp <= dew+dewpoint_margin:
                          remove_action({'what':'set_valve_change'})
                          insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                          log_event('Close valve to avoid condensation.  Dewpoint: ' + "{0:.2f}".format(dew) + 'C Supply Temp: ' + "{0:.2f}".format(ave_supply_temp) + 'C')
                          last_dewpoint_adjust = gv.now
+                         one_way_cooling_adjustments = 0
                      elif target < ave_supply_temp + 1:
                          remove_action({'what':'set_valve_change'})
-                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':5})
-                         gv.logger.debug('More buffer tank water')
+                         if one_way_cooling_adjustments < 0:
+                             one_way_cooling_adjustments = 0
+                         if one_way_cooling_adjustments < max_cooling_adjustments:
+                             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':5})
+                             gv.logger.debug('More buffer tank water: ' + str(one_way_cooling_adjustments))
+                         else:
+                             gv.logger.debug('Ignoring request for more buffer tank water')
                          last_dewpoint_adjust = gv.now
+                         if one_way_cooling_adjustments < max_cooling_adjustments:
+                             one_way_cooling_adjustments += 1
                      elif target > ave_supply_temp + 1:
                          remove_action({'what':'set_valve_change'})
-                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-5})
-                         gv.logger.debug('More return water')
+                         if one_way_cooling_adjustments > 0:
+                             one_way_cooling_adjustments = 0
+                         if one_way_cooling_adjustments > min_cooling_adjustments:
+                             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-5})
+                             gv.logger.debug('More return water: ' + str(one_way_cooling_adjustments))
+                         else:
+                             gv.logger.debug('Ignoring request for more return water')
                          last_dewpoint_adjust = gv.now
+                         if one_way_cooling_adjustments > min_cooling_adjustments:
+                             one_way_cooling_adjustments -= 1
         except Exception as ex:
 #            print 'Exception: ', ex
             try:
