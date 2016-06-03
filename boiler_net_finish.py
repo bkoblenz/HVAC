@@ -9,7 +9,7 @@ import json
 import i18n
 import ast
 import gv
-from helpers import network_up, network_exists, get_cpu_temp, jsave, get_ip
+from helpers import network_up, network_exists, get_cpu_temp, jsave, get_ip, update_upnp
 import sys
 import logging
 import urllib
@@ -22,8 +22,8 @@ urls = (
 def stop_daemons():
     try:
         logger.debug('stopping hostapd and dnsmasq')
-#        subprocess.call("/etc/init.d/dnsmasq stop", shell=True, stderr=subprocess.STDOUT)
         subprocess.call("/etc/init.d/hostapd stop", shell=True, stderr=subprocess.STDOUT)
+        subprocess.call("/etc/init.d/dnsmasq stop", shell=True, stderr=subprocess.STDOUT)
 
     except Exception as ex:
         logger.exception('stop_daemons: Unexpected exception trying to stop daemons: ' + str(ex))
@@ -33,7 +33,7 @@ def start_daemons():
     for attempts in range(3):
         try:
             logger.debug('starting hostapd and dnsmasq')
-#            subprocess.call("/etc/init.d/dnsmasq start", shell=True, stderr=subprocess.STDOUT)
+            subprocess.call("/etc/init.d/dnsmasq start", shell=True, stderr=subprocess.STDOUT)
             subprocess.call("/etc/init.d/hostapd start", shell=True, stderr=subprocess.STDOUT)
             return
 
@@ -81,32 +81,28 @@ class NetConfig(web.application):
     def GET(self):
         self.logger.debug('in Net GET')
         save_last_get('Net GET')
+
+        form_args = ()
+        form_args += (web.form.Textbox('System Name', web.form.notnull, value=gv.sd['name']), )
+        form_args += (web.form.Textbox('System Port', web.form.notnull, value=gv.sd['htp']), )
+        form_args += (web.form.Textbox('External System Port', value="0"), )
+        form_args += (web.form.Checkbox('Enable UPnP', checked=False), )
+        form_args += (web.form.Textbox('UPnP Refresh Rate', value=gv.sd['upnp_refresh_rate']), )
+
         if not using_eth0():
             with open('data/visible_networks','r') as f:
                 net_list = json.load(f)
             self.logger.debug('visible networks: ' + ",".join(net_list))
+            form_args += (web.form.Dropdown('SSID', net_list), )
+            form_args += (web.form.Textbox('Hidden SSID'), )
+            form_args += (web.form.Password('Password'), )
 
-            netform = web.form.Form(
-#                web.form.Checkbox('Use Hardwired eth0'),
-                web.form.Textbox('System Name', web.form.notnull, value=gv.sd['name']),
-                web.form.Textbox('System Port', web.form.notnull, value=gv.sd['htp']),
-                web.form.Dropdown('SSID', net_list),
-                web.form.Textbox('Hidden SSID'),
-                web.form.Password('Password'),
-                web.form.Checkbox('Use DHCP', checked=True),
-                web.form.Textbox('Static IP'),
-                web.form.Textbox('Netmask'),
-                web.form.Textbox('Gateway'))
-        else:
-            netform = web.form.Form(
-                web.form.Textbox('System Name', web.form.notnull, value=gv.sd['name']),
-                web.form.Textbox('System Port', web.form.notnull, value=gv.sd['htp']),
-                web.form.Checkbox('Use DHCP', checked=True),
-                web.form.Textbox('Static IP'),
-                web.form.Textbox('Netmask'),
-                web.form.Textbox('Gateway'))
+        form_args += (web.form.Checkbox('Use DHCP', checked=True), )
+        form_args += (web.form.Textbox('Static IP'), )
+        form_args += (web.form.Textbox('Netmask'), )
+        form_args += (web.form.Textbox('Gateway'), )
 
-        form = netform
+        form = web.form.Form(*form_args)
         msg1 = 'Select network or enter hidden SSID and provide password.'
         msg1 += '    Only WPA and WPA2 (Personal) protocols supported.'
         msg2 = 'Use DHCP to automatically get IP address, or configure a static IP address.'
@@ -214,12 +210,27 @@ class NetConfig(web.application):
             if network_up(net):
                 #successful network connection.   Finalize
                 # copy the current versions to the save version
+                if gv.sd['enable_upnp']: # was enabled?  Then cleanup
+                    cur_ip = get_ip(net)
+                    deletes = []
+                    if gv.sd['external_htp'] != 0:
+                        deletes.append(gv.sd['external_htp'])
+                    if gv.sd['remote_support_port'] != 0:
+                        deletes.append(gv.sd['remote_support_port'])
+                    update_upnp(cur_ip, deletes)
+                gv.sd['enable_upnp'] = 1 if 'Enable UPnP' in form else 0
+                if gv.sd['enable_upnp']:
+                    if 'UPnP Refresh Rate' in form:
+                        gv.sd['upnp_refresh_rate'] = int(form['UPnP Refresh Rate'])
+
                 if 'System Name' in form:
                     gv.sd['name'] = form['System Name']
                     jsave(gv.sd, 'sd')
                 if 'System Port' in form:
                     gv.sd['htp'] = int(form['System Port'])
                     jsave(gv.sd, 'sd')
+                if 'External System Port' in form:
+                    gv.sd['external_htp'] = int(form['External System Port'])
                 self.logger.info('success....copying back interfaces and wpa')
                 shutil.copy('/etc/network/interfaces', '/etc/network/interfaces.save')
                 shutil.copy('/etc/wpa_supplicant/wpa_supplicant.conf', '/etc/wpa_supplicant/wpa_supplicant.conf.save')

@@ -12,6 +12,7 @@ import ast
 import i18n
 import thread
 import logging
+import logging.handlers
 import gv
 from helpers import *
 import web
@@ -418,6 +419,9 @@ def timing_loop():
     failed_temp_read = 0
     last_dewpoint_adjust = 0
 
+    check_and_update_upnp()
+    last_upnp_refresh = gv.now
+
     while True:
         try:
             time.sleep(1)
@@ -428,6 +432,11 @@ def timing_loop():
             zc = pi.read(zone_call[0])
             boiler_md = get_boiler_mode()
             heatpump_md = get_heatpump_mode()
+
+            if gv.sd['upnp_refresh_rate'] > 0 and \
+                   (gv.now-last_upnp_refresh)//60 >= gv.sd['upnp_refresh_rate']:
+                check_and_update_upnp()
+                last_upnp_refresh = gv.now
 
             if gv.sd['mode'] != last_mode: # turn everything off
                 log_event('change mode.  Turn off boiler, heatpump, circ_pump')
@@ -618,11 +627,12 @@ if __name__ == '__main__':
         }
 
     log_file = 'logs/boiler.out'
-    fh = logging.FileHandler(log_file)
+    fh = logging.handlers.RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
-    logger.addHandler(fh)
-    logger.setLevel(logging.DEBUG) 
+    gv.logger.addHandler(fh)
+    gv.logger.setLevel(logging.DEBUG)
+
     logger.info('Starting...')
 
     for pin_e in in_pins:

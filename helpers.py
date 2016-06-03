@@ -111,6 +111,71 @@ def get_ip(net=''):
     except:
         return "No IP Settings"
 
+def update_upnp(cur_ip, deletes=[],adds=[]):
+    try:
+        upnp_out = subprocess.check_output("upnpc -l ", shell=True)
+        l = upnp_out.split('\n')
+        last_dot = cur_ip.rfind(".")
+        if last_dot == -1:
+            raise ValueError('Bad IP Address')
+        short_cur_ip = cur_ip[0:last_dot]
+        router_try = short_cur_ip + '.1'
+        router_ref = ''
+        desc = 'desc: '
+        for e in l:
+            # If we find a router ending in .1 use it.  Otherwise if we find only
+            # one upnp device, use it.  Otherwise give up.
+            if desc in e:
+                if router_try in e:
+                    router_ref = '-u ' + e[e.find(desc)+len(desc):]
+                    break
+                elif router_try == '':
+                    router_ref = '-u ' + e[e.find(desc)+len(desc):]
+                else:
+                    router_ref == 'Multiple'
+        if router_ref == '' or router_ref == 'Multiple':
+            raise ValueError('upnp Router Not Found: ' + upnp_out)
+    except Exception as ex:
+        gv.logger.info('Could not update upnp: ' + str(ex))
+        return
+
+    for port in deletes:
+        try:
+            upnp_out = subprocess.check_output("upnpc " + router_ref + " -d " + str(port) + " TCP", shell=True)
+            gv.logger.info('upnp force deleted port : ' + str(port))
+        except Exception as ex:
+            gv.logger.info('upnp could not force delete port: ' + str(port) + ' Exception: ' + str(ex))
+
+    for e in adds:
+        internal_port = e[0]
+        external_port = e[1]
+        try:
+            # create new one.  Dont delete existing as that will drop connections.
+            #upnp_out = subprocess.check_output("upnpc " + router_ref + " -d " + str(external_port) + " TCP", shell=True)
+            #gv.logger.info('upnp deleted port : ' + str(external_port))
+            upnp_out = subprocess.check_output("upnpc " + router_ref + " -a " + cur_ip + ' ' + str(internal_port) + ' ' + str(external_port) + " TCP", shell=True)
+            gv.logger.info('upnp added ip: ' + cur_ip + ' internal port: ' + str(internal_port) + ' external port: ' + str(external_port))
+            upnp_out = subprocess.check_output("upnpc " + router_ref + " -l | grep TCP", shell=True)
+            gv.logger.debug('upnp -l: ' + upnp_out)
+        except Exception as ex:
+            gv.logger.info('upnp could not add internal port: ' + str(internal_port) + ' for external port: ' + str(external_port) + ' Exception: ' + str(ex))
+
+def check_and_update_upnp(cur_ip=''):
+    """Update the remote mappings if appropriate"""
+
+    if cur_ip == '':
+        cur_ip = get_ip()
+    if cur_ip != 'No IP Settings' and gv.sd['enable_upnp']:
+        adds = []
+        if gv.sd['external_htp'] != 0:
+            if gv.sd['htp'] == 0:
+                adds.append([80, gv.sd['external_htp']])
+            else:
+                adds.append([gv.sd['htp'], gv.sd['external_htp']])
+        if gv.sd['remote_support_port'] != 0:
+            adds.append([22, gv.sd['remote_support_port']])
+        update_upnp(cur_ip, [], adds)
+
 def network_exists(net):
     try:
         netinfo = subprocess.check_output(['ifconfig', net])

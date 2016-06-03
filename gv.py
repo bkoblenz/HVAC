@@ -59,6 +59,10 @@ sd = {
     u"iw": [0],
     u"rsn": 0,
     u"htp": 80,
+    u"external_htp": 0,
+    u"enable_upnp": 0,
+    u"upnp_refresh_rate": 15,
+    u"remote_support_port": 0,
     u"nst": 8,
     u"rdst": 0,
     u"loc": u"",
@@ -177,38 +181,23 @@ p_spread_min = 5
 p_duration_sec = 6
 p_station_mask_idx = 7 # and bytes beyond this too
 
-options = [
-    [_("System name"), "string", "name", _("Unique name of this Boiler system."), _("System")],
-#    [_("Location"), "string", "loc", _("City name or zip code. Use comma or + in place of space."), _("System")],
-# until i18n updated    [_("Language"),"list","lang", _("Select language."),_("System")],
-    [_("Time zone"), "list", "tza", _("Example: US/Pacific."), _("System")],
-    [_("24-hour clock"), "boolean", "tf", _("Display times in 24 hour format (as opposed to AM/PM style.)"), _("System")],
+options = []
+options += \
+    [_("System name"), "string", "name", _("Unique name of this Boiler system."), _("System")], \
+    [_("Time zone"), "list", "tza", _("Example: US/Pacific."), _("System")], \
+    [_("24-hour clock"), "boolean", "tf", _("Display times in 24 hour format (as opposed to AM/PM style.)"), _("System")], \
     [_("Mode"), "list", "mode", _("Heating or cooling mode."), _("System")],
-#    [_("HTTP port"), "int", "htp", _("HTTP port."), _("System")],
-#    [_("Water Scaling"), "int", "wl", _("Water scaling (as %), between 0 and 100."), _("System")],
-    [_("Disable security"), "boolean", "ipas", _("Allow anonymous users to access the system without a password."), _("Change Password")],
-    [_("Current password"), "password", "opw", _("Re-enter the current password."), _("Change Password")],
-    [_("New password"), "password", "npw", _("Enter a new password."), _("Change Password")],
-    [_("Confirm password"), "password", "cpw", _("Confirm the new password."), _("Change Password")],
-#    [_("Sequential"), "boolean", "seq", _("Sequential or concurrent run-once mode."), _("Station Handling")],
-#    [_("Extension boards"), "int", "nbrd", _("Number of extension boards."), _("Station Handling")],
-#    [_("Station delay"), "int", "sdt", _("Station delay time (in seconds), between 0 and 240."), _("Station Handling")],
-#    [_("Master station"), "int", "mas",_( "Select master station."), _("Station Handling")],
-#    [_("Master on adjust"), "int", "mton", _("Master on delay (in seconds)."), _("Station Handling")],
-#    [_("Master off adjust"), "int", "mtoff", _("Master off delay (in seconds)."), _("Station Handling")],
-#    [_("Use rain sensor"), "boolean", "urs", _("Use rain sensor."), _("Rain Sensor")],
-#    [_("Normally open"), "boolean", "rst", _("Rain sensor type."), _("Rain Sensor")],
-    [_("Enable logging"), "boolean", "lg", _("Log all events."), _("Logging")],
-    [_("Max log entries"), "int", "lr", _("Length of log to keep, 0=no limits."), _("Logging")],
-#    [_("After program run"), "boolean", "tepr", _("Send text/email if program has run."), _("Text/Email")],
-#    [_("Substation status"), "boolean", "tesu", _("Send text/email when substation status changes."), _("Text/Email")],
-    [_("gmail username"), "string", "teuser", _("Username from which to send texts and emails."), _("Text/Email")],
+
+if sd['enable_upnp']:
+    options += [_("Remote support"), "int", "remote_support_port", _("Enable remote ssh access for support.  Substations get remote support ports starting at this one and increasing."), _("System")],
+
+options += \
+    [_("Disable security"), "boolean", "ipas", _("Allow anonymous users to access the system without a password."), _("Change Password")], \
+    [_("Current password"), "password", "opw", _("Re-enter the current password."), _("Change Password")], \
+    [_("New password"), "password", "npw", _("Enter a new password."), _("Change Password")], \
+    [_("Confirm password"), "password", "cpw", _("Confirm the new password."), _("Change Password")], \
+    [_("Enable logging"), "boolean", "lg", _("Log all events."), _("Logging")], \
+    [_("Max log entries"), "int", "lr", _("Length of log to keep, 0=no limits."), _("Logging")], \
+    [_("gmail username"), "string", "teuser", _("Username from which to send texts and emails."), _("Text/Email")], \
     [_("gmail password"), "password", "tepassword", _("Password associated with above username."), _("Text/Email")],
-#    [_("Enable internet weather"), "boolean", "etok", _("Adjust watering based on internet weather."), _("Weather station")],
-#    [_("Minimum %"), "int", "etmin", _("Minimum percentage of programmed watering to always use (0..100)."), _("Weather station")],
-#    [_("Maximum %"), "int", "etmax", _("Maximum percentage of programmed watering to always use (0..100)."), _("Weather station")],
-#    [_("History days used"), "int", "ethistory", _("Number of previous days to consider when computing watering amount (0..7)."), _("Weather station")],
-#    [_("Forecast days used"), "int", "etforecast", _("Number of days of forecast to consider when comuting watering amount (0..7)."), _("Weather station")],
-#    [_("Base scale factor"), "int", "etbase", _("Magic number to adjust if you are seeing too much (adjust up) or too little (adjust down) water."), _("Weather station")],
-#    [_("Wunderground API key"), "string", "etapi", _("Weather underground API key."), _("Weather station")],
-]
+

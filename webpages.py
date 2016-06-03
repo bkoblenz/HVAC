@@ -226,7 +226,7 @@ class change_options(ProtectedPage):
                     qdict['rbt'] = '1'  # force reboot with change
                 gv.sd[f] = qdict['o'+f]
 
-        for f in ['wl', 'lr', 'etmin', 'etmax', 'ethistory', 'etforecast', 'etbase']:
+        for f in ['wl', 'lr', 'etmin', 'etmax', 'ethistory', 'etforecast', 'etbase', 'remote_support_port']:
             if 'o'+f in qdict:
                 gv.sd[f] = int(qdict['o'+f])
 
