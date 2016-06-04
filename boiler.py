@@ -574,7 +574,7 @@ def timing_loop():
                             insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
                 if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
                      dewpoint_margin = 1.5
-                     min_supply = 13
+                     min_supply = 10
                      max_supply = 20
                      target = max(dew+dewpoint_margin+1, (min_supply+max_supply)/2.)
                      adjust = 0
@@ -588,17 +588,20 @@ def timing_loop():
                          one_way_cooling_adjustments = 0
                      elif target < ave_supply_temp - .1:
                          remove_action({'what':'set_valve_change'})
+                         adjust = 0
                          if one_way_cooling_adjustments < 0:
                              one_way_cooling_adjustments = 0
-                         adjust = cooling_adjust_per_degree * (ave_supply_temp - target)
-                         if last_ave_supply_temp != None and last_ave_supply_temp - ave_supply_temp > 0: # already going down?  Be patient
+                             adjust += 2
+                         adjust += cooling_adjust_per_degree * (ave_supply_temp - target)
+                         if last_ave_supply_temp != None and last_ave_supply_temp - ave_supply_temp > 0 and \
+                                gv.now-last_dewpoint_adjust <= 180: # already going down?  Be patient
                              new_adjust = adjust - 2*cooling_adjust_per_degree * (last_ave_supply_temp - ave_supply_temp)
                              msg = 'already going down'
                              gv.logger.debug(msg + ': ' + \
                                              ' adjust: ' + "{0:.2f}".format(adjust) + \
                                              ' new_adjust: ' + "{0:.2f}".format(new_adjust))
                              adjust = max(0, new_adjust)
-                         adjust = int(adjust)
+                         adjust = int(round(adjust))
                          msg = 'Ignoring request for more buffer tank water'
                          if adjust > 0 and one_way_cooling_adjustments < max_cooling_adjustments:
                              insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':adjust})
@@ -607,17 +610,20 @@ def timing_loop():
                              msg = 'More buffer tank water'
                      elif target > ave_supply_temp + .1:
                          remove_action({'what':'set_valve_change'})
+                         adjust = 0
                          if one_way_cooling_adjustments > 0:
                              one_way_cooling_adjustments = 0
-                         adjust = cooling_adjust_per_degree * (ave_supply_temp - target)
-                         if last_ave_supply_temp != None and last_ave_supply_temp - ave_supply_temp < 0: # already going up?  Be patient
+                             adjust -= 2
+                         adjust += cooling_adjust_per_degree * (ave_supply_temp - target)
+                         if last_ave_supply_temp != None and last_ave_supply_temp - ave_supply_temp < 0 and \
+                                gv.now-last_dewpoint_adjust <= 180: # already going up?  Be patient
                              new_adjust = adjust - 2*cooling_adjust_per_degree * (last_ave_supply_temp - ave_supply_temp)
                              msg = 'already going up'
                              gv.logger.debug(msg + ': ' + \
                                              ' adjust: ' + "{0:.2f}".format(adjust) + \
                                              ' new_adjust: ' + "{0:.2f}".format(new_adjust))
                              adjust = min(0, new_adjust)
-                         adjust = int(adjust)
+                         adjust = int(round(adjust))
                          msg = 'Ignoring request for more return water'
                          if adjust < 0 and one_way_cooling_adjustments > min_cooling_adjustments:
                              insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':adjust})
