@@ -577,16 +577,16 @@ def timing_loop():
                      if ave_supply_temp <= dew+dewpoint_margin:
                          remove_action({'what':'set_valve_change'})
                          insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
-                         log_event('Close valve to avoid condensation.  Dewpoint: ' + "{0:.2f}".format(dew) + 'C Supply Temp: ' + "{0:.2f}".format(ave_supply_temp) + 'C')
+                         log_event('Close valve; avoid condensation.  Dew: ' + "{0:.2f}".format(dew) + 'C target: ' + "{0:.2f}".format(target) + 'C supply: ' + "{0:.2f}".format(ave_supply_temp) + 'C')
                          last_dewpoint_adjust = gv.now
                          one_way_cooling_adjustments = 0
-                     elif target < ave_supply_temp + 1:
+                     elif target < ave_supply_temp - 1:
                          remove_action({'what':'set_valve_change'})
                          if one_way_cooling_adjustments < 0:
                              one_way_cooling_adjustments = 0
                          if one_way_cooling_adjustments < max_cooling_adjustments:
                              insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':5})
-                             gv.logger.debug('More buffer tank water: ' + str(one_way_cooling_adjustments))
+                             gv.logger.debug('More buffer tank water: ' + str(one_way_cooling_adjustments) + ' target: ' + "{0:.2f}".format(target) + 'C supply: ' + "{0:.2f}".format(ave_supply_temp) + 'C')
                          else:
                              gv.logger.debug('Ignoring request for more buffer tank water')
                          last_dewpoint_adjust = gv.now
@@ -598,12 +598,14 @@ def timing_loop():
                              one_way_cooling_adjustments = 0
                          if one_way_cooling_adjustments > min_cooling_adjustments:
                              insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-5})
-                             gv.logger.debug('More return water: ' + str(one_way_cooling_adjustments))
+                             gv.logger.debug('More return water: ' + str(one_way_cooling_adjustments) + ' target: ' + "{0:.2f}".format(target) + 'C supply: ' + "{0:.2f}".format(ave_supply_temp) + 'C')
                          else:
                              gv.logger.debug('Ignoring request for more return water')
                          last_dewpoint_adjust = gv.now
                          if one_way_cooling_adjustments > min_cooling_adjustments:
                              one_way_cooling_adjustments -= 1
+                     else:
+                         gv.logger.debug('Not changing valve: ' + str(one_way_cooling_adjustments) + ' target: ' + "{0:.2f}".format(target) + 'C supply: ' + "{0:.2f}".format(ave_supply_temp) + 'C')
         except Exception as ex:
 #            print 'Exception: ', ex
             try:
