@@ -410,7 +410,7 @@ def process_actions():
                 log_event('Unexpected action: ' + action['what'] + ' ex: ' + str(ex))
             del actions[i]
     
-max_cooling_adjustments = 100
+max_cooling_adjustments = 150
 min_cooling_adjustments = -max_cooling_adjustments
 cooling_adjust_per_degree = 2.5
 
@@ -574,9 +574,7 @@ def timing_loop():
                             insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
                 if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
                      dewpoint_margin = 1.5
-                     min_supply = 10
-                     max_supply = 20
-                     target = max(dew+dewpoint_margin+1, (min_supply+max_supply)/2.)
+                     target = max(dew+dewpoint_margin+1, 10.)
                      adjust = 0
                      if ave_supply_temp <= dew+dewpoint_margin:
                          remove_action({'what':'set_valve_change'})
