@@ -576,14 +576,14 @@ def timing_loop():
                      dewpoint_margin = 1.5
                      target = max(dew+dewpoint_margin+1, 10.)
                      adjust = 0
-                     if ave_supply_temp <= dew+dewpoint_margin:
+                     if ave_supply_temp <= dew+dewpoint_margin and one_way_cooling_adjustments > min_cooling_adjustments:
                          remove_action({'what':'set_valve_change'})
                          insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                          msg = 'Close valve; avoid condensation'
                          log_event(msg + ': ' + "{0:.2f}".format(dew) + 'C target: ' + "{0:.2f}".format(target) + 'C supply: ' + "{0:.2f}".format(ave_supply_temp) + 'C')
                          last_dewpoint_adjust = gv.now
                          last_ave_supply_temp = None
-                         one_way_cooling_adjustments = 0
+                         one_way_cooling_adjustments = min_cooling_adjustments
                      elif target < ave_supply_temp - .1:
                          remove_action({'what':'set_valve_change'})
                          adjust = 0
