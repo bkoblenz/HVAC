@@ -392,7 +392,7 @@ def process_actions():
                     amount = min(amount, 100)
                     amount = max(amount, -100)
                     if amount == 0: # stop valve movement
-                        log_event('stop valve')
+#                        log_event('stop valve')
                         pi.write(close_ret[0], 1)
                         pi.write(open_ret[0], 1)
                     elif amount < 0: # more return, less buffer tank
