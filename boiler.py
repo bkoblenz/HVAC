@@ -516,7 +516,9 @@ def timing_loop():
                           'dewpoint: ' + "{0:.2f}".format(dew) + 'C ' + "{0:.2f}".format(dew_f) + 'F')
 
             if zc != last_zc: # change in zone call
-                if last_zc == 1: # was off, now on?
+                if gv.sd['mode'] == 'None':
+                    zc = last_zc # dont do anything in terms of moving water
+                elif last_zc == 1: # was off, now on?
                     supply_temp_readings = []
                     return_temp_readings = []
                     last_ave_supply_temp = None
