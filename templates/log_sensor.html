@@ -1,0 +1,203 @@
+$def with (substation, sd, sensid, sens, srecords, erecords)
+
+$var title: $_('Irricloud Sensor Logs')
+$var page: sensors
+$code:
+	def formatTime(t):
+		if sd['tf']:
+			return t
+		else:
+			hour = int(t[0:2])
+			newhour = hour
+			if hour == 0:
+				newhour = 12
+			if hour > 12:
+				newhour = hour-12
+			return str(newhour)  + t[2:] + (" am" if hour<12 else " pm")
+
+<script src="static/amcharts/amcharts.js" type="text/javascript"></script>
+<script src="static/amcharts/serial.js" type="text/javascript"></script>
+
+<script>
+
+    $if sens['type'] in ['Temperature', 'Moisture', 'Leak Detector', 'Dry Contact', 'Motion']:
+        var chart;
+        var chartData = [];
+        $for i in range(len(srecords),0,-1):
+            $ sr = srecords[i-1]
+            $ dt = sr['date'] + ' ' + sr['time']
+            $ value = float(sr['value'])
+            $if sens['type'] == 'Temperature' and sd['tu'] == 'F':
+                $ value = value*1.8 + 32
+            $ action = sr['action'] if 'action' in sr else ''
+            $if action == 'Low Trigger':
+                $ color = '#0000FF'
+            $elif action == 'Low Value':
+                $ color = '#000088'
+            $elif action == 'High Trigger':
+                $ color = '#FF0000'
+            $elif action == 'High Value':
+                $ color = '#880000'
+            $else:
+                $ color = '#00FF00'
+            chartData.push({"datetime":"${dt}", "lineColor":"${color}", "value":"${value}"});
+
+        AmCharts.ready(function() {
+            chart = new AmCharts.AmSerialChart();
+            chart.dataProvider = chartData;
+            chart.categoryField = "datetime";
+            chart.valueAxes.push({gridAlpha:0});
+            chart.addListener('dataUpdated', zoomChart);
+            chart.addListener('zoomed', handleZoom);
+
+            var graph = new AmCharts.AmGraph();
+            graph.valueField = "value";
+            graph.lineColorField = "lineColor";
+            //graph.balloonText = "[[category]]: <b>[[value]]</b>";
+            graph.balloonText = "<b>[[value]]</b>";
+            graph.type = "line";
+            graph.bullet = "round";
+            graph.hideBulletsCount = 100;
+            graph.lineColor = "#32A620"
+            // graph.fillAlphas = 0.6;
+            //graph.negativeBase = 0.0;
+            //graph.negativeLineColor = "#0000FF"
+            chart.addGraph(graph);
+
+            var categoryAxis = chart.categoryAxis;
+            categoryAxis.gridAlpha = 0;
+            categoryAxis.labelRotation = 45;
+            categoryAxis.parseDates = true;
+            categoryAxis.minPeriod = "ss";
+            chart.dataDateFormat = "YYYY-MM-DD JJ:NN:SS";
+
+            //        var valueAxes = chart.valueAxes;
+            //        var valueAxis = valueAxes[0];
+            //        valueAxis.gridAlpha = 0;
+
+            var chartCursor = new AmCharts.ChartCursor();
+            chart.addChartCursor(chartCursor);
+            chartCursor.categoryBalloonDateFormat = "YYYY-MM-DD JJ:NN:SS";
+            chartCursor.categoryBalloonText = "[[category]]";
+            chartCursor.categoryLineBalloonEnabled = true;
+            chartCursor.bulletsEnabled = true;
+            chartCursor.limitToGraph = graph;
+            chartCursor.valueLineBalloonEnabled = false;
+
+            var chartScrollbar = new AmCharts.ChartScrollbar();
+            chartScrollbar.scrollbarHeight = 30;
+            chartScrollbar.graph = graph; // as we want graph to be displayed in the scrollbar, we set graph here
+            chartScrollbar.graphType = "line";                
+            chartScrollbar.gridCount = 8;
+            chartScrollbar.color = "#FFFFFF";
+            chart.addChartScrollbar(chartScrollbar);
+
+            chart.write('chartdiv');
+        });
+
+        // this method is called when chart is first inited as we listen for "dataUpdated" event
+        function zoomChart() {
+            // different zoom methods can be used - zoomToIndexes, zoomToDates, zoomToCategoryValues
+            var elements = Math.min(100, chartData.length)
+            chart.zoomToIndexes(chartData.length - elements, chartData.length-1);
+        }
+
+        // this method is called each time the selected period of the chart is changed
+        function handleZoom(event) {
+            var startDate = event.startDate;
+            var endDate = event.endDate;
+            // document.getElementById("startDate").value = AmCharts.formatDate(startDate, "DD/MM/YYYY");
+            // document.getElementById("endDate").value = AmCharts.formatDate(endDate, "DD/MM/YYYY");
+            chart.validateNow();
+        }
+
+    // Initialize behaviors
+    jQuery(document).ready(function(){
+        jQuery("button#nRefresh").click(function(){
+            window.location= baseUrl + "/ldvl?substation=${substation}&sensid=${sensid}";
+        });
+        jQuery("button#nDeleteSample").click(function(){
+            jQuery("form#df input[name='kind']").val('slog');
+            jQuery("form#df").submit();
+        });
+        jQuery("button#nDeleteEvent").click(function(){
+            jQuery("form#df input[name='kind']").val('evlog');
+            jQuery("form#df").submit();
+        });
+    });
+
+</script>
+
+<div id="options">
+    <div class="title">$_('Sensor ')${sens['name']}</div>
+    <form method="get" action="${app_path('/ldcl')}" name="df" id="df">
+        <input type="hidden" name="kind"/>
+        <input type="hidden" name="sensid" value="${sensid}"/>
+        <input type="hidden" name="substation" value="${substation}"/>
+    </form>
+</div>
+
+<div id="log">
+
+    $if sens['lgs'] and sens['type'] in ['Temperature', 'Moisture', 'Leak Detector'] and len(srecords) > 0:
+        <div id="chartdiv" style="width: 640px; height: 400px;"></div>
+        <p>&nbsp</p>
+
+    <p>$_('Event Logs ')${"Enabled" if sens['lge'] else "Disabled"}</p>
+    <p>$_('Total number of event records: ')${len(erecords)} (${_("no") if sd['lr']==0 else sd['lr']}$_(' limit'))</p>
+    <p>$_('Download log as ')<a href="${app_path('/ldsel?substation='+str(substation)+'&sensid='+str(sensid))}">csv</a>.</p>
+
+    <table class="logList">
+        <tr class="log_rec">
+            <th>$_('Date')</th>
+            <th>$_('Time')</th>
+            <th>$_('Event')</th>
+        </tr>
+        $ odd = 1
+        $for r in erecords:
+            $ event = r #  ast.literal_eval(json.loads(r))
+            <tr class="log_rec ${'odd' if odd else 'even'}">
+                <td align='center'>${event["date"]}</td>
+                <td align='center'>${formatTime(event["time"])}</td>
+                <td align='center'>${event["event"]}</td>
+            </tr>
+            $ odd = 1 - odd
+    </table>
+
+    <p>$_('Sample Logs ')${"Enabled" if sens['lgs'] else "Disabled"}</p>
+    <p>$_('Total number of sample records: ')${len(srecords)} (${_("no") if sd['lr']==0 else sd['lr']}$_(' limit'))</p>
+    <p>$_('Download log as ')<a href="${app_path('/ldssl?substation='+str(substation)+'&sensid='+str(sensid))}">csv</a>.</p>
+
+    <table class="logList">
+        <tr class="log_rec">
+            <th>$_('Date')</th>
+            <th>$_('Time')</th>
+            <th>$_('Value')</th>
+            <th>$_('Action')</th>
+        </tr>
+        $ odd = 1
+        $for r in srecords:
+            $ event = r #  ast.literal_eval(json.loads(r))
+            <tr class="log_rec ${'odd' if odd else 'even'}">
+                <td align='center'>${event["date"]}</td>
+                <td align='center'>${formatTime(event["time"])}</td>
+                $ value = float(event['value'])
+                $if sens['type'] == 'Temperature' and sd['tu'] == 'F':
+                    $ value = float(value)*1.8 + 32
+                $ value = "{0:.2f}".format(value)
+                <td align='center'>${value}</td>
+                <td align='center'>
+                $if 'action' in event:
+                    ${event["action"]}
+                </td>
+            </tr>
+            $ odd = 1 - odd
+    </table>
+
+</div>
+
+<div id="controls">
+    <button id="nRefresh" class="refresh">$_('Refresh')</button>
+    <button id="nDeleteSample" class="delete danger">$_('Clear Sample Log')</button>
+    <button id="nDeleteEvent" class="delete danger">$_('Clear Event Log')</button>
+</div>

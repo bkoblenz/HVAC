@@ -1,0 +1,193 @@
+$def with (substation, degrees, pd, sensboards, remotesensboards, sensnames, sensid, sens)
+
+$var title: $_('Irricloud Modify Sensor')
+$var page: sensors
+
+$code:
+	def two_digits(n):
+		return '%02d' % int(n)
+
+        pdlen = len(pd)
+        selsize = str(min(pdlen+1, 4))
+	
+<script>
+    var sensnames = $:{[s.encode('utf-8') for s in sensnames]}; // save names
+
+    function checkSensorName() {
+        var nsens = sensnames.length;
+        var sn = jQuery("#name").val();
+        var sid;
+        for (sid=0; sid<nsens; sid++) {
+            if (sn == '' || (sn == sensnames[sid] && sid != ${sensid})) {
+                alert($:{json.dumps(_('Sensor names must be non-null and unique.'), ensure_ascii=False)});
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    // Initialize behaviors
+    jQuery(document).ready(function(){
+        jQuery("button#cSensorEnabled").click(function(){
+            jQuery(this).toggleClass("on").toggleClass("off");
+            return false;
+        });
+
+        jQuery(".numbersOnly").keyup(function () {
+            var newValue = this.value.replace(/[^0-9 ]/g, '');
+            this.value = newValue;
+        });
+
+        jQuery(".cleanText").keyup(function () {
+            var newValue = this.value.replace(/[/\\\*]/g, '');
+            this.value = newValue;
+        });
+
+        jQuery("select.ttype").change(function(){
+            var t = jQuery("select.ttype").val();
+            var sn = jQuery("#name").val();
+            jQuery.getJSON(baseUrl + '/ldcst?substation=${substation}&sensid=${sensid}&type='+t+'&name='+sn)
+            // make vflags=2 so temporary sensor (which was updated in ldcst is used
+            window.location = baseUrl + '/ldms?substation=${substation}&vflags=2&sensid=${sensid}';
+        });        
+
+        jQuery("button#cSubmit").click(function(){
+            var en = jQuery("button#cSensorEnabled").hasClass("on") ? 1 : 0;
+            jQuery("form#mf input[name='enabled']").val(en);
+            if (checkSensorName()) {
+                return;
+            }
+
+            // process time
+            var srm = parseInt(jQuery("#tdm").val());
+            var srs = parseInt(jQuery("#tds").val());
+            var sr = srm*60 + srs;
+            if (sr <= 0) {
+                alert($:{json.dumps(_('Error: Sample Rate must be a positive amount of time.'), ensure_ascii=False)});
+                return;
+            }
+            jQuery("form#mf input[name='sample_rate']").val(sr);
+
+            var stabm = parseInt(jQuery("#stabm").val());
+            var stabs = parseInt(jQuery("#stabs").val());
+            var stab = stabm*60 + stabs;
+            jQuery("form#mf input[name='stabilization']").val(stab);
+
+            jQuery("form#mf").submit();
+        });
+        jQuery("button#cCancel").click(function(){
+            window.location= baseUrl + "/lda";
+        });
+
+    });
+
+</script>
+<div id="programs">
+    <div class="title">${_("Edit Sensor ") + sens['name'] if (sensid>-1) else _("Add a New Sensor")}</div>
+    <form name="mf" id="mf" action="${app_path('/ldcs')}" method="get">
+        <input type="hidden" name="enabled">
+        <input type="hidden" name="sample_rate">
+        <input type="hidden" name="stabilization">
+        <input type="hidden" name="sensid" value="${sensid}">
+        <input type="hidden" name="substation" value="${substation}">
+        <div style="padding-left:5px;padding-right:5px;">
+            <p><button id="cSensorEnabled" class="toggle ${'on' if sens['enabled'] else 'off'}"><span class='toggleleft'>$_('Sensor On')</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>$_('Sensor Off')</span></button></p>
+            <div class="controlBlock">
+                <p><b>$_('Sensor Name'): </b><input class="cleanText" id="name" name="name" value="${sens['name']}">
+                <b>$_(' Sensor Type'): </b><select class="ttype" name="type">
+                $for t in ['None', 'Dry Contact', 'Motion', 'Leak Detector', 'Temperature']:
+                    <option value="${t}" ${" selected" if sens['type']==t else ""}><b>${t}</b></option>
+                </select>
+                </p>
+                <p><b>$_('Sensor Board'): </b>
+                <select name="vsb_bd">
+                <option value="-1" ${" selected" if 'vsb_bd' not in sens or sens['vsb_bd']==-1 else ""}><b>None</b></option>
+                $for t in sensboards:
+                    <option value="${t}" ${" selected" if 'vsb_bd' in sens and sens['vsb_bd']==t else ""}><b>${t+1}</b></option>
+                $for t in remotesensboards:
+                    <option value="${t}" ${" selected" if 'vsb_bd' in sens and sens['vsb_bd']==t else ""}><b>${t}</b></option>
+                </select>
+                <b>$_('Sensor Position'): </b>
+                <select name="vsb_pos">
+                $for t in range(4):
+                    <option value="${t}" ${" selected" if 'vsb_pos' in sens and sens['vsb_pos']==t else ""}><b>${t+1}</b></option>
+                </select>
+                </p>
+                <p><b>$_('Sample Rate'): </b><input class="timeInput numbersOnly" type="text" size="2" maxlength="3" id="tdm" value="${two_digits(sens['sample_rate']/60)}"> :
+                <input class="timeInput numbersOnly" type="text" size="2" maxlength="2" id="tds" value="${two_digits(sens['sample_rate']%60)}"> (mm:ss)</p>
+                <p><b>Log Samples: </b><input type="checkbox" ${"checked" if sens['lgs'] else ""} name="lgs" id="lgs"></p>
+                <p><b>Log Events: </b><input type="checkbox" ${"checked" if sens['lge'] else ""} name="lge" id="lge"></p>
+                <p><b>Text/Email Events: </b><input type="checkbox" ${"checked" if sens['te'] else ""} name="te" id="te"></p>
+                <p><b>Normal Sensor Value Considered Event?: </b><input type="checkbox" ${"checked" if sens['normal_trigger'] else ""} name="normal_trigger" id="normal_trigger"></p>
+                $if sens['type'] == 'Leak Detector':
+                    <p><b>Relearn?: </b><input type="checkbox" name="rln" id="rln"></p>
+                    <p><b>$_('Stabilization Time'): </b><input class="timeInput numbersOnly" type="text" size="2" maxlength="3" id="stabm" value="${two_digits(sens['stabilization']/60)}"> :
+                    <input class="timeInput numbersOnly" type="text" size="2" maxlength="2" id="stabs" value="${two_digits(sens['stabilization']%60)}"> (mm:ss)</p>
+                    <p><b>$_('Sensitivity'): </b><input class="timeInput numbersOnly" type="text" size="2" maxlength="3" id="sensitivity" name="sensitivity" value="${sens['sensitivity']}"> %</p>
+                    <p><b>$_('Low Program(s)'): </b>
+                    <select class="tlp" name="trigger_low_program" id="trigger_low_program" size="${selsize}" multiple="multiple">
+                    <option value="None" ${" selected" if len(sens['trigger_low_program'])==0 else ""}><b>None</b></option>
+                    $for p in pd:
+                        <option value="${p[-1].encode('utf-8')}" ${" selected" if p[-1] in sens['trigger_low_program'] else ""}><b>${p[-1]}</b></option>
+                    </select></p>
+                    <p><b>$_('High Program(s)'): </b>
+                    <select class="thp" name="trigger_high_program" id="trigger_high_program" size="${selsize}" multiple="multiple">
+                    <option value="None" ${" selected" if len(sens['trigger_high_program'])==0 else ""}><b>None</b></option>
+                    $for p in pd:
+                        <option value="${p[-1].encode('utf-8')}" ${" selected" if p[-1] in sens['trigger_high_program'] else ""}><b>${p[-1]}</b></option>
+                    </select></p>
+                $elif sens['type'] in ['Dry Contact']:
+                    <p><b>$_('Open Program(s)'): </b>
+                    <select class="tlp" name="trigger_low_program" id="trigger_low_program" size="${selsize}" multiple="multiple">
+                    <option value="None" ${" selected" if len(sens['trigger_low_program'])==0 else ""}><b>None</b></option>
+                    $for p in pd:
+                        <option value="${p[-1].encode('utf-8')}" ${" selected" if p[-1] in sens['trigger_low_program'] else ""}><b>${p[-1]}</b></option>
+                    </select></p>
+                    <p><b>$_('Closed Program(s)'): </b>
+                    <select class="thp" name="trigger_high_program" id="trigger_high_program" size="${selsize}" multiple="multiple">
+                    <option value="None" ${" selected" if len(sens['trigger_high_program'])==0 else ""}><b>None</b></option>
+                    $for p in pd:
+                        <option value="${p[-1].encode('utf-8')}" ${" selected" if p[-1] in sens['trigger_high_program'] else ""}><b>${p[-1]}</b></option>
+                    </select></p>
+                $elif sens['type'] in ['Motion']:
+                    <p><b>$_('Program(s)'): </b>
+                    <select class="thp" name="trigger_high_program" id="trigger_high_program" size="${selsize}" multiple="multiple">
+                    <option value="None" ${" selected" if len(sens['trigger_high_program'])==0 else ""}><b>None</b></option>
+                    $for p in pd:
+                        <option value="${p[-1].encode('utf-8')}" ${" selected" if p[-1] in sens['trigger_high_program'] else ""}><b>${p[-1]}</b></option>
+                    </select></p>
+                $elif sens['type'] in ['Moisture', 'Temperature']:
+                    $ lt = sens['trigger_low_threshold']
+                    $if sens['type'] == 'Temperature' and degrees == 'F':
+                        $ lt = lt*1.8 + 32
+                    <p><b>$_('Low Threshold'): </b>
+                    <input id="trigger_low_threshold" name="trigger_low_threshold" value="${"{0:.1f}".format(lt)}">
+                    <b>$_(' Low Program(s)'): </b>
+                    <select class="tlp" name="trigger_low_program" id="trigger_low_program" size="${selsize}" multiple="multiple">
+                    <option value="None" ${" selected" if len(sens['trigger_low_program'])==0 else ""}><b>None</b></option>
+                    $for p in pd:
+                        <option value="${p[-1].encode('utf-8')}" ${" selected" if p[-1] in sens['trigger_low_program'] else ""}><b>${p[-1]}</b></option>
+                    </select>
+                    </p>
+                    $ ht = sens['trigger_high_threshold']
+                    $if sens['type'] == 'Temperature' and degrees == 'F':
+                        $ ht = ht*1.8 + 32
+                    <p><b>$_('High Threshold'): </b>
+                    <input id="trigger_high_threshold" name="trigger_high_threshold" value="${"{0:.1f}".format(ht)}">
+                    <b>$_(' High Program(s)'): </b>
+                    <select class="thp" name="trigger_high_program" id="trigger_high_program" size="${selsize}" multiple="multiple">
+                    <option value="None" ${" selected" if len(sens['trigger_high_program'])==0 else ""}><b>None</b></option>
+                    $for p in pd:
+                        <option value="${p[-1].encode('utf-8')}" ${" selected" if p[-1] in sens['trigger_high_program'] else ""}><b>${p[-1]}</b></option>
+                    </select>
+                    </p>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div id="controls">
+    <button id="cSubmit" class="submit"><b>$_('Save')</b></button>
+    <button id="cCancel" class="cancel danger">$_('Cancel')</button>
+    <span id="errorHint"></span>
+</div>

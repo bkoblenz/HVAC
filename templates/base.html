@@ -7,6 +7,10 @@ $code:
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta http-equiv="x-ua-compatible" content="IE=edge">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
     <title>${content.title + (" - "+gv.sd['name'] if gv.sd['name'] != "SIP" else "")}</title>
     <link href="$app_path('/static/images/favicon.ico')" rel="icon" type="image/x-icon">
     <link href="$app_path('/static/themes/' + gv.sd['theme'] + '/base.css')" rel="stylesheet" type="text/css"/>
@@ -77,6 +81,17 @@ $code:
                     e.stopPropagation();
                 });
 
+                jQuery("select.substation").change(function(){
+                    var sub = jQuery("select.substation").val();
+                    var wind = window.location.href;
+                    var wlen = wind.length;
+                    var ulen = "unreachable".length;
+                    if (wlen > ulen && wind.substring(wlen-ulen, wlen) == "unreachable") {
+                        wind = wind.substring(0, wlen-ulen);
+                    }
+                    window.location = baseUrl + '/suset?substationname='+sub+'&url='+wind;
+                });        
+
                 jQuery(document).click(function(){
                     jQuery("#pluginMenu").slideUp();
                 });
@@ -95,7 +110,21 @@ $code:
         </div>
 
         <div class="header">
-            <div class="title">${gv.sd['name'] if gv.sd['name'] != "SIP" else ""}</div>
+            <div class="title">
+                $if not gv.sd['master'] or 'su' not in gv.plugin_data or len(gv.plugin_data['su']['subinfo']) < 2:
+                    ${gv.sd['name'] if gv.sd['name'] != "SIP" else ""}
+                $else:
+                    <select name="osubstation" class="substation">
+                    $for i in range(1,len(gv.plugin_data['su']['subinfo'])):
+                        $ sub = gv.plugin_data['su']['subinfo'][i]
+                        <option value="${sub['name']}" ${" selected" if gv.substation==sub['name'] else ""}>
+                        ${"" if sub['status']=='ok' else "**"}
+                        $ subip = sub['proxy'] if sub['proxy'] != '' else sub['ip'] 
+                        $if len(subip) > 4 and '10.' == subip[0:3]:
+                            ${"R" if '10.1.' not in subip[0:5] else "W"}
+                        ${' ' + sub['name']}</option>
+                    </select>
+            </div>
         </div>
 
         <div class="body">
@@ -106,18 +135,16 @@ $code:
 
             <div class="panel">
 <!--
-                        <button id="bPrograms" class="programs${' here' if content.page=='programs' else ''}" title=$:{json.dumps(_('Define Programs'), ensure_ascii=False)}>$_('Programs')</button>
-                        <button id="bRunOnce" class="start${' here' if content.page=='runonce' else ''}" title=$:{json.dumps(_('Define Run Once Program'), ensure_ascii=False)}>$_('Run Once')</button>
                         <button id="bPlugins" class="plugins${' here' if content.page=='plugins' else ''}" title=$:{json.dumps(_('Access Plugins'), ensure_ascii=False)}>$_('Plugins')</button>
-                        <button id="bStations" class="stations${' here' if content.page=='stations' else ''}" title=$:{json.dumps(_('Configure Stations'), ensure_ascii=False)}>$_('Stations')</button>
+                        $if not(gv.sd['ipas']):
+                            <button id="bLogout" class="logout" title=$:{json.dumps(_('Logout'), ensure_ascii=False)}>$_('Logout')</button>
 -->
                 $if content.page != 'login':
                     <div id="nav">
-                        <button id="bHome" class="home${' here' if content.page=='home' else ''}" title=$:{json.dumps(_('Home'), ensure_ascii=False)}>$_('Home')</button>
-                        <button id="bLog" class="log${' here' if content.page=='log' else ''}" title=$:{json.dumps(_('View Log'), ensure_ascii=False)}>$_('Log')</button>
+                        <button id="bLog" class="log${' here' if content.page=='log' else ''}" title=$:{json.dumps(_('View Log'), ensure_ascii=False)}>$_('Logs')</button>
                         <button id="bOptions" class="options${' here' if content.page=='options' else ''}" title=$:{json.dumps(_('Options'), ensure_ascii=False)}>$_('Options')</button>
-                        $if not(gv.sd['ipas']):
-                            <button id="bLogout" class="logout" title=$:{json.dumps(_('Logout'), ensure_ascii=False)}>$_('Logout')</button>
+                        <button id="bSensors" class="sensors${' here' if content.page=='sensors' else ''}" title=$:{json.dumps(_('Configure Sensors'), ensure_ascii=False)}>$_('Sensors')</button>
+                        <button id="bUpdates" class="updates${' here' if content.page=='updates' else ''}" title=$:{json.dumps(_('Software Updates'), ensure_ascii=False)}>$_('Updates')</button>
                     </div>
 
                 $:{content}
@@ -125,13 +152,12 @@ $code:
             </div>
         </div>
         <div class="footer">
-            <div>
-                $if content.page != 'login':
                 <button id="bHelp" class="help" title=$:{json.dumps(_('Help'), ensure_ascii=False)}>$_('?')</button>
-            </div>
                 <p>$_('CPU Temp'): <b><span id="heat" style="cursor:pointer" title=$:{json.dumps(_('Click to toggle'), ensure_ascii=False)} + ' Celsius &lt;&gt; Fahrenheit'></span></b></p>
-                <p>$_('version'): <b>${gv.ver_str} (${gv.ver_date})</b></p>
-
+                <p>$_('Version'): <b>${gv.ver_str} (${gv.ver_date})</b></p>
+                $if gv.uptime != '':
+                    <p>$_('Up since'): <b>${gv.uptime}</b></p>
+                <p>$_('Local IP'): <b>${gv.last_ip}</b> $_(' External IP'): <b>${gv.external_ip}</b></p>
         </div>
 
     </div>

@@ -1,4 +1,4 @@
-$def with (substation, snames, sd, pid, prog)
+$def with (substation, snames, sd, pid, prog, prog_name)
 
 $var title: $_('Irricloud Modify Program')
 $var page: programs
@@ -7,25 +7,23 @@ $code:
 	def two_digits(n):
 		return '%02d' % int(n)
 	
-	if pid < 0:
+	if len(prog) == 2:
 		program = [1, 127, 4, 360, 1080, 240, 900] # does not include station bytes(program[7+]. #dk
-		for brd in range(sd['nbrd']): #dk
-			program.extend([0]) # add bytes per number of boards. #dk
+		for brd in range((sd['nst']+7)//8):
+			program.extend([0]) # add bytes per number of boards.
 	else:
 		program = eval(prog)
-		full_len = gv.p_station_mask_idx + sd['nbrd'] #dk
-		if len(program) < full_len: #dk
-		    for brd in range(full_len - len(program)): #dk
-		        program.extend([0]) # add bytes per number of boards. #dk
+
 	weekly = not((program[gv.p_day_mask]&0x80) and (program[gv.p_interval_day]>1))
 	stationsShown = 0
 	stationsOn = 0
-	for bid in range(sd['nbrd']):
+	for bid in range((sd['nst']+7)/8):
 		boardShow = sd['show'][bid]
 		for s in range(0,8):
 			stationsShown += (boardShow>>s) & 1
 			if program[gv.p_station_mask_idx+bid]&(1<<s):
 				stationsOn = stationsOn + 1		 			
+
 	even = program[gv.p_day_mask]&0x80 and program[gv.p_interval_day]==0
 	odd = program[gv.p_day_mask]&0x80 and program[gv.p_interval_day]==1
 	recurring = program[gv.p_start_time] + program[gv.p_duration_sec]/60*stationsOn < program[gv.p_stop_time]
@@ -47,7 +45,7 @@ $code:
     function parseTime(prefix) {
         var h = parseInt(jQuery("#"+prefix+"h").val());
         var m = parseInt(jQuery("#"+prefix+"m").val());
-        if (prefix.indexOf("i") < 0 && !timeFormat) {
+        if (prefix.indexOf("i") < 0 && !timeFormat && (h != 24 || m != 0)) {
             var f = jQuery("#"+prefix+"f").val();
             if (f == "PM") {
                 if (h != 12) {
@@ -59,7 +57,7 @@ $code:
                 }
             }
         }
-        if (!(h>=0 && h<24 && m>=0 && m<60)) {
+        if (!(h>=0 && h<24 && m>=0 && m<60) && (h!=24 || m != 0)) { // special case for 24:00 meaning in-demand
             alert($:{json.dumps(_('Error: Incorrect time input '), ensure_ascii=False)} + prefix + ".");
             return -1;
         }
@@ -69,8 +67,10 @@ $code:
     function checkConsistency() {
         disableSubmit = false;
         errorHint = "";
-        if (jQuery("button#cWeeklyInterval").hasClass("on") &&
-            jQuery(".weekday.on").length < 1) {
+        // Allow on demand programs to have no days selected
+        var startTime = parseTime("ts");
+        if (jQuery("button#cWeeklyInterval").hasClass("on") && jQuery(".weekday.on").length < 1 &&
+              startTime != 24*60) {
             disableSubmit = true;
             errorHint = $:{json.dumps(_('Please choose at least one weekday for the program to run.'), ensure_ascii=False)};
         }
@@ -112,6 +112,7 @@ $code:
             jQuery("#recurr").toggle();
             return false;
         });
+
         jQuery("table.stationList button.weekday.pushon, table.stationList button.station.toggle").click(function(){
             var id = jQuery(this).attr("id");
             var state = jQuery(this).hasClass("on");
@@ -157,11 +158,14 @@ $code:
             return false;
         });
 
+        jQuery(".cleanText").keyup(function () {
+            var newValue = this.value.replace(/[/\\\*]/g, '');
+            this.value = newValue;
+        });
+
         jQuery(".numbersOnly").keyup(function () {
-            var newValue = this.value.replace(/[^0-9]/g, '');
-            if (this.value != newValue) {
-                this.value = newValue;
-            }
+            var newValue = this.value.replace(/[^0-9 ]/g, '');
+            this.value = newValue;
         });
         jQuery("#intervalSelector").click(function() {
             var dayInterval = parseInt(jQuery("#intervalSelector .intervalSelect.distance0").text());
@@ -199,15 +203,20 @@ $code:
             }
         });
 
-        jQuery("button#cSubmit").click(function(){
+        // Submit the information we have for program "pid".  If back_to_modify that means we have
+        // a pending program and rather than printing error messages, just get back to modify_program
+        function submit_program(pid, back_to_modify) {
             var days = 0, dayInterval = 0, i, s, sid;
             var en = jQuery("button#cProgramEnabled").hasClass("on") ? 1 : 0;
             var water_type = jQuery("#ttype").val();
-            var fixed = (water_type == 'Flexible Watering') ? 0 : 1;
+            var fixed = (water_type == 'Sequential Watering') ? 0 : 1;
+            var indefinite = (water_type == 'Indefinite Watering') ? 1 : 0;
             var ban_stop = (water_type == 'Fixed Ban with Stop') ? 1 : 0;
             var ban_delay =  (water_type == 'Fixed Ban with Delay') ? 1 : 0;
             var ban = (ban_stop || ban_delay) ? 1 : 0;
-            var nbrd = ${sd['nbrd']};
+            var nst = ${sd['nst']};
+            var nbrd = ~~((nst+7)/8);
+
             // process days
             if (jQuery("button#cWeeklyInterval").hasClass("on")) {
                 for (i=0; i<7; i++) {
@@ -229,8 +238,10 @@ $code:
                 days = parseInt(jQuery("#intervalDelaySelector .intervalSelect.distance0").text());
 
                 if (days < 0 || days >= dayInterval) {
-                    alert($:{json.dumps(_('Error: starting in days wrong.'), ensure_ascii=False)});
-                    return;
+                    if (!back_to_modify) {
+                        alert($:{json.dumps(_('Error: starting in days wrong.'), ensure_ascii=False)});
+                        return;
+                    }
                 }
                 days|=0x80;
             }
@@ -249,36 +260,90 @@ $code:
             var dm = parseInt(jQuery("#tdm").val());
             var ds = parseInt(jQuery("#tds").val());
             var duration = dm*60 + ds;
-            if (!(dm>=0 && ds>=0 && ds<60 && duration>0)) {
-                alert($:{json.dumps(_('Error: Incorrect duration.'), ensure_ascii=False)});
-                return;
+            if (duration == 0 && !indefinite) {
+                if (!back_to_modify) {
+                    alert($:{json.dumps(_('Error: 0 duration requires Indefinite Watering.'), ensure_ascii=False)});
+                    return;
+                }
+            }
+            if (duration != 0 && indefinite) {
+                if (!back_to_modify) {
+                    alert($:{json.dumps(_('Error: Indefinite Watering requires 0 duration.'), ensure_ascii=False)});
+                    return;
+                }
+            }
+            if (!(dm>=0 && ds>=0 && ds<60 && duration>=0 && duration < 86400)) {
+                if (!back_to_modify) {
+                    alert($:{json.dumps(_('Error: Incorrect duration.'), ensure_ascii=False)});
+                    return;
+                }
             }
 
             var startTime = parseTime("ts");
             if (jQuery("button#cRecurring").hasClass("on")) {
-                var interval = jQuery(".station.on").length * duration/60;
+                var interval = 1;
                 var endTime = startTime + interval;
             } else {
-                var endTime = parseTime("te");
                 var interval = parseTime("ti");
+                var instances = parseInt(jQuery("#tinstances").val());
+                var endTime = startTime + (instances-1)*interval + 1
+                if (endTime > 24*60 && startTime != 24*60) {
+                    if (!back_to_modify) {
+                        alert($:{json.dumps(_('Error: Number of instances must finish within the day.'), ensure_ascii=False)});
+                        return;
+                    }
+                }
+                if (interval <= 0) {
+                    if (!back_to_modify) {
+                        alert($:{json.dumps(_('Error: Span between recurring instances must be greater than 0.'), ensure_ascii=False)});
+                        return;
+                    }
+                }
                 if (duration > interval*60) {
-                  alert($:{json.dumps(_('Error: Duration must be less than interval.'), ensure_ascii=False)});
-                  return;
+                    if (!back_to_modify) {
+                        alert($:{json.dumps(_('Error: Duration must be less than interval.'), ensure_ascii=False)});
+                        return;
+                    }
                 }
             }
-            if (startTime >= endTime) {
-                // Possible bug - can you run a program from 10PM to 2AM?
-                alert($:{json.dumps(_('Error: Start time must be prior to end time.'), ensure_ascii=False)});
-                return;
+            if (!indefinite && startTime >= endTime) {
+                if (!back_to_modify) {
+                    alert($:{json.dumps(_('Error: Start time must be prior to end time.'), ensure_ascii=False)});
+                    return;
+                }
             }
-            var flags = (ban_delay<<4) | (ban_stop<<3) | (fixed<<2) | (ban<<1) | en;
+            var flags = (indefinite<<5) | (ban_delay<<4) | (ban_stop<<3) | (fixed<<2) | (ban<<1) | en;
             var v = "[" + flags + "," + days + "," + dayInterval + "," + startTime + "," + endTime + "," + interval + "," + duration;
             for (var i=0; i<nbrd; i++) {
                 v += "," + stations[i];
             }
             v += "]";
             jQuery("form#mf input[name='v']").val(v);
+            var pn = jQuery("#program_name").val();
+            jQuery("form#mf input[name='program_name']").val(pn);
+            jQuery("form#mf input[name='pid']").val(pid);
+            if (back_to_modify) { // 
+                jQuery("form#mf input[name='vflags']").val(2);
+            }
             jQuery("form#mf").submit();
+        }
+
+        jQuery("input.demand").change(function(){
+            var state = jQuery("input.demand").val();
+            if (state == "off") {
+                jQuery("#tsh").val("24");
+                jQuery("#tsm").val("00");
+            } else {
+                jQuery("#tsh").val("06"); // match 360 default minutes after midnight
+                jQuery("#tsm").val("00");
+            }
+            var h1 = jQuery("#tsh").val();
+            var h = parseInt(jQuery("#tsh").val());
+            submit_program(${pid}, true);
+        });
+
+        jQuery("button#cSubmit").click(function(){
+            submit_program(${pid}, false);
         });
         jQuery("button#cCancel").click(function(){
             window.location= baseUrl + "/vp";
@@ -288,7 +353,7 @@ $code:
 
 </script>
 <div id="programs">
-    <div class="title">${_("Edit Program #") + str(pid+1) if (pid>-1) else _("Add a New Program")}</div>
+    <div class="title">${_("Edit Program ") + prog_name if (pid>-1) else _("Add a New Program")}</div>
     <form name="mf" id="mf" action="${app_path('/cp')}" method="get">
         <input type="hidden" name="pid" value="${pid}">
         <input type="hidden" name="substation" value="${substation}">
@@ -298,31 +363,39 @@ $code:
             <p><button id="cProgramEnabled" class="toggle ${'on' if program[gv.p_flags]&1 == 1 else 'off'}"><span class='toggleleft'>$_('Program On')</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>$_('Program Off')</span></button></p>
             <div class="controlBlock">
                 <p>
+                <b>$_('Program Name'):</b> <input class="cleanText" id="program_name" name="program_name" value="${prog_name}">
                 <select name="ttype" id="ttype">
-                    <option value="Flexible Watering" ${" selected" if (program[gv.p_flags]&4)==0 else ""}><b>Flexible Watering</b></option>
-                    <option value="Fixed Watering" ${" selected" if (program[gv.p_flags]&4)==4 and (program[gv.p_flags]&2) == 0 else ""}><b>Fixed Watering</b></option>
+                    <option value="Sequential Watering" ${" selected" if (program[gv.p_flags]&4)==0 else ""}><b>Sequential Watering</b></option>
+                    <option value="Fixed Watering" ${" selected" if (program[gv.p_flags]&4)==4 and (program[gv.p_flags]&2) == 0 and (program[gv.p_flags]&32)==0 else ""}><b>Fixed Watering</b></option>
+                    <option value="Indefinite Watering" ${" selected" if (program[gv.p_flags]&4)==4 and (program[gv.p_flags]&2) == 0 and (program[gv.p_flags]&32)==32 else ""}><b>Indefinite Watering</b></option>
                     <option value="Fixed Ban with Stop" ${" selected" if (program[gv.p_flags]&8)==8 else ""}><b>Fixed Ban with Stop</b></option>
                     <option value="Fixed Ban with Delay" ${" selected" if (program[gv.p_flags]&16)==16 else ""}><b>Fixed Ban with Delay</b></option>
                 </select>
                 </p>
-                <p>
+                <p><b>$_('On-Demand Only?'): </b><input type="checkbox" ${"checked" if program[gv.p_start_time] == 24*60 else ""} value=${"on" if program[gv.p_start_time] == 24*60 else "off"} class="demand"></p>
                 $ t = formatTime(two_digits(program[gv.p_start_time]/60) + ":" + two_digits(program[gv.p_start_time]%60))
+                $if program[gv.p_start_time] != 24*60:
+                    <p>
                     <b>$_('Start Time'):</b> <input class="timeInput numbersOnly" type="text" size="2" maxlength="2" id="tsh" value="${t.split(":")[0]}"> :
                     <input class="timeInput numbersOnly" type="text" size="2" maxlength="2" id="tsm" value="${t.split(":")[1][0:2]}">
-                $if tf:
-                    (hh:mm)
+                    $if tf:
+                        (hh:mm)
+                    $else:
+                        <select id='tsf'>
+                            <option ${"selected" if t.find("am")>=0 else ""}>AM</option>
+                            <option ${"selected" if t.find("pm")>=0 else ""}>PM</option>
+                        </select>
+                    </p>
                 $else:
-                    <select id='tsf'>
-                        <option ${"selected" if t.find("am")>=0 else ""}>AM</option>
-                        <option ${"selected" if t.find("pm")>=0 else ""}>PM</option>
-                    </select>
-                </p>
+                    <input type="hidden" class="timeInput numbersOnly" id="tsh" value="${t.split(":")[0]}">
+                    <input type="hidden" class="timeInput numbersOnly" id="tsm" value="${t.split(":")[1][0:2]}">
                 <p><b>$_('Duration'):</b> <input class="timeInput numbersOnly" type="text" size="2" maxlength="3" id="tdm" value="${two_digits(program[gv.p_duration_sec]/60)}"> :
                 <input class="timeInput numbersOnly" type="text" size="2" maxlength="2" id="tds" value="${two_digits(program[gv.p_duration_sec]%60)}"> (mm:ss)</p>
                 <p><button id="cRecurring" class="toggle choice ${'off' if recurring else 'on'}"><span class='toggleleft'>$_('Single pass')</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>$_('Recurring')</span></button></p>
                 <div id="recurr" $:{"" if recurring else "style='display:none'"}>
                     <p><b>$_('Every'):</b> <input class="timeInput numbersOnly" type="text" size="2" maxlength="2" id="tih" value="${two_digits(program[gv.p_spread_min]/60)}"> :
                     <input class="timeInput numbersOnly" type="text" size="2" maxlength="2" id="tim" value="${two_digits(program[gv.p_spread_min]%60)}"> (hh:mm)</p>
+<!--
                     <p>
                     $ t = formatTime(two_digits(program[gv.p_stop_time]/60) + ":" + two_digits(program[gv.p_stop_time]%60))
                         <b>$_('Until'):</b> <input class="timeInput numbersOnly" type="text" size="2" maxlength="2" id="teh" value="${t.split(":")[0]}"> :
@@ -334,6 +407,20 @@ $code:
                             <option ${"selected" if t.find("am")>=0 else ""}>AM</option>
                             <option ${"selected" if t.find("pm")>=0 else ""}>PM</option>
                         </select>
+                    </p>
+-->
+                    $ instances = 0
+                    $if program[gv.p_spread_min] > 0:
+                        $ start = program[gv.p_start_time]
+                        $ stop = program[gv.p_stop_time]-1
+                        $ spread = program[gv.p_spread_min]
+                        $ instances = ((stop-start)//spread) + 1
+                        $if instances < 0:
+                            $ instances = 0
+                    <p>
+                    <b>$_('For ')</b>
+                    <input class="numbersOnly" type="text" size="2" maxlength="2" id="tinstances" value="${instances}">
+                    <b>$_('Instances')</b>
                     </p>
                 </div>
             </div>
@@ -357,67 +444,67 @@ $code:
                     <td><button id="day6" class="weekday pushon ${"on" if program[gv.p_day_mask]&(1<<6) else "off"}">$_('Sunday')</button></td>
                 </td>
                 $ firstTime = True
-                $for bid in range(0, sd['nbrd']):
-                    $for s in range(0,8):
-                        $ sid = bid*8 + s;
-                        $ sn = sid + 1
-                        $ show = (sd['show'][bid]>>s)&1
-                        $if show == 1 and sn != sd['mas']:
-                            $ stationEnabled = program[gv.p_station_mask_idx+bid]&(1<<s)
-                            <tr>
-                                <td class='station_name'>${snames[sid]}</td>
-                                <td>
-                                    <button id="station${sid}" class='station toggle narrow ${'on' if stationEnabled else 'off'}'><span class='toggleleft'>$_('On')</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>$_('Off')</span></button>
+                $for sid in range(0, sd['nst']):
+                    $ bid = sid // 8
+                    $ s = sid % 8
+                    $ sn = sid + 1
+                    $ show = (sd['show'][bid]>>s)&1
+                    $if show == 1 and sn != sd['mas']:
+                        $ stationEnabled = program[gv.p_station_mask_idx+bid]&(1<<s)
+                        <tr>
+                            <td class='station_name'>${snames[sid]}</td>
+                            <td>
+                                <button id="station${sid}" class='station toggle narrow ${'on' if stationEnabled else 'off'}'><span class='toggleleft'>$_('On')</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>$_('Off')</span></button>
+                            </td>
+                            $for d in range(0,7):
+                                $ status = ("stationOn" if stationEnabled else "") + (" dayOn" if program[gv.p_day_mask]&(1<<d) else "")
+                                <td class="showWeekly stationState ${status} station${sid} day${d}" $:{"" if weekly else "style='display:none'"}></td>
+                            $if firstTime:
+                                <td class="showInterval" $:{"style='display:none'" if weekly else ""} rowspan="${stationsShown}">
+                                    <p>$_('Water interval'):</p>
+                                    <div id="intervalSelector" class="animatedSelector controlblock">
+                                        <!--  Customize this with any set of intervals you like up to 127 -->
+                                        <span class="intervalSelect ${"distance0" if weekly else ""}">2</span>
+                                        <span class="intervalSelect">3</span>
+                                        <span class="intervalSelect">4</span>
+                                        <span class="intervalSelect">5</span>
+                                        <span class="intervalSelect">6</span>
+                                        <span class="intervalSelect">7</span>
+                                        <span class="intervalSelect">8</span>
+                                        <span class="intervalSelect">9</span>
+                                        <span class="intervalSelect">10</span>
+                                        <span class="intervalSelect">11</span>
+                                        <span class="intervalSelect">12</span>
+                                        <span class="intervalSelect">13</span>
+                                        <span class="intervalSelect">14</span>
+                                        <span class="intervalSelect">15</span>
+                                        <span class="intervalSelect">16</span>
+                                        <span class="intervalSelect">17</span>
+                                        <span class="intervalSelect">18</span>
+                                        <span class="intervalSelect">19</span>
+                                        <span class="intervalSelect">20</span>
+                                        <span class="intervalSelect">21</span>
+                                        <span class="intervalSelect">22</span>
+                                        <span class="intervalSelect">23</span>
+                                        <span class="intervalSelect">24</span>
+                                        <span class="intervalSelect">25</span>
+                                        <span class="intervalSelect">26</span>
+                                        <span class="intervalSelect">27</span>
+                                        <span class="intervalSelect">28</span>
+                                        <span class="intervalSelect">29</span>
+                                        <span class="intervalSelect">30</span>
+                                    </div>
+                                    <p>$_('Starting in'):</p>
+                                    <div id="intervalDelaySelector" class="animatedSelector controlblock">
+                                        $if weekly:
+                                            <span class="intervalSelect distance0">0</span>
+                                            <span class="intervalSelect distance1">1</span>
+                                        $else:
+                                            <span class="intervalSelect distance0">${program[gv.p_day_mask]&0x7F}</span>
+                                    </div>
                                 </td>
-                                $for d in range(0,7):
-                                    $ status = ("stationOn" if stationEnabled else "") + (" dayOn" if program[gv.p_day_mask]&(1<<d) else "")
-                                    <td class="showWeekly stationState ${status} station${sid} day${d}" $:{"" if weekly else "style='display:none'"}></td>
-                                $if firstTime:
-                                    <td class="showInterval" $:{"style='display:none'" if weekly else ""} rowspan="${stationsShown}">
-                                        <p>$_('Water interval'):</p>
-                                        <div id="intervalSelector" class="animatedSelector controlblock">
-                                            <!--  Customize this with any set of intervals you like up to 127 -->
-                                            <span class="intervalSelect ${"distance0" if weekly else ""}">2</span>
-                                            <span class="intervalSelect">3</span>
-                                            <span class="intervalSelect">4</span>
-                                            <span class="intervalSelect">5</span>
-                                            <span class="intervalSelect">6</span>
-                                            <span class="intervalSelect">7</span>
-                                            <span class="intervalSelect">8</span>
-                                            <span class="intervalSelect">9</span>
-                                            <span class="intervalSelect">10</span>
-                                            <span class="intervalSelect">11</span>
-                                            <span class="intervalSelect">12</span>
-                                            <span class="intervalSelect">13</span>
-                                            <span class="intervalSelect">14</span>
-                                            <span class="intervalSelect">15</span>
-                                            <span class="intervalSelect">16</span>
-                                            <span class="intervalSelect">17</span>
-                                            <span class="intervalSelect">18</span>
-                                            <span class="intervalSelect">19</span>
-                                            <span class="intervalSelect">20</span>
-                                            <span class="intervalSelect">21</span>
-                                            <span class="intervalSelect">22</span>
-                                            <span class="intervalSelect">23</span>
-                                            <span class="intervalSelect">24</span>
-                                            <span class="intervalSelect">25</span>
-                                            <span class="intervalSelect">26</span>
-                                            <span class="intervalSelect">27</span>
-                                            <span class="intervalSelect">28</span>
-                                            <span class="intervalSelect">29</span>
-                                            <span class="intervalSelect">30</span>
-                                        </div>
-                                        <p>$_('Starting in'):</p>
-                                        <div id="intervalDelaySelector" class="animatedSelector controlblock">
-                                            $if weekly:
-                                                <span class="intervalSelect distance0">0</span>
-                                                <span class="intervalSelect distance1">1</span>
-                                            $else:
-                                                <span class="intervalSelect distance0">${program[gv.p_day_mask]&0x7F}</span>
-                                        </div>
-                                    </td>
-                                    $ firstTime = False
-                            </tr>
+                                $ firstTime = False
+                        </tr>
                 <tr class="showWeekly" $:{"" if weekly else "style='display:none'"}>
                     <td colspan="2"></td>
                     <td colspan="7">

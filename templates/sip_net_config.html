@@ -1,12 +1,15 @@
-$def with(msg1, msg2, netform)
+$def with(messages, netform)
 
 $var title: $_('Irricloud Network Configuration')
 $var page: login
 
-<em>${msg1}<br>
-    ${msg2}<br>
+<em>
+$for i in range(len(messages)):
+    ${messages[i]}<br>
+
 </em>
 <form name="network" method="post">
+    $if not netform.valid: <p class="error">Form Error.  Please try again:</p>
     $:netform.render()
     <input type="submit"/>
 </form>

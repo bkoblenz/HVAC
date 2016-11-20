@@ -3,31 +3,34 @@ var displayScheduleDate = new Date(Date.now() + cliTzOffset - devTzOffset); // d
 var displayScheduleTimeout;
 var sid,sn,t;
 var simdate = displayScheduleDate; // date for simulation
-if (typeof progs !== 'undefined'){var nprogs = progs.length}; // number of programs
-if (typeof nbrd !== 'undefined'){var nst = nbrd*8}; // number of stations
+//if (typeof progs !== 'undefined'){var nprogs = progs.length}; // number of programs
+//if (typeof nbrd !== 'undefined'){var nst = nbrd*8}; // number of stations
 
 function scheduledThisDate(simdate) { // check if progrm is scheduled for this date and return list of start times
   // simdate is a JavaScript date object
-  simday = Math.floor(simdate/(1000*3600*24)) // The number of days since epoc
   var sched_times = [];
   for(pid=0;pid<nprogs;pid++) { //for each program
-    var pd=progs[pid];
-    if((pd[0]&1)==0)
+    var p=pd[pid];
+    if((p[0]&1)==0)
       continue; // program not enabled, do not match
-    if ((pd[1]&0x80)&&(pd[2]>1)) {  // if interval program...  
-      if(((simday)%pd[2])!=(pd[1]&0x7f))
+    if (p[3] == 24*60)
+      continue; // on-demand program
+    if ((p[1]&0x80)&&(p[2]>1)) {  // if interval program...  
+      var lsimdate = new Date(simdate - cliTzOffset);
+      var lsimday = Math.floor(lsimdate/(1000*3600*24)) // The number of local days since epoc
+      if(((lsimday)%p[2])!=(p[1]&0x7f))
         continue;	
     } else {
       var wd,dn,drem; // week day, Interval days, days remaining
       wd=(simdate.getDay()+6)%7; // getDay assumes sunday is 0, converts to Monday to 0 (weekday index)
-      if((pd[1]&(1<<wd))==0)
+      if((p[1]&(1<<wd))==0)
         continue; // weekday checking
       dt=simdate.getDate(); // set dt = day of the month
-      if((pd[1]&0x80)&&(pd[2]==0)) { // even day checking...
+      if((p[1]&0x80)&&(p[2]==0)) { // even day checking...
         if(dt%2)
           continue; // if odd day (dt%2 == 1), no not match
       }
-      if((pd[1]&0x80)&&(pd[2]==1))  { // odd day checking...
+      if((p[1]&0x80)&&(p[2]==1))  { // odd day checking...
         if(dt==31)
           continue; // if 31st of month, do not match
         else if (dt==29 && simdate.getMonth()==1)
@@ -36,7 +39,7 @@ function scheduledThisDate(simdate) { // check if progrm is scheduled for this d
           continue; // if even day, do not match
       }
     }
-    for (sched=pd[3]; sched < pd[4]; sched += pd[5]) {
+    for (sched=p[3]; sched < p[4]; sched += p[5]) {
       sched_times.push([sched*60, pid]);
     }
   }
@@ -89,9 +92,9 @@ function doSimulation() { // Create schedule by a full program simulation, was d
     var sched = program_times.shift();
     var start = sched[0];
     var pid = sched[1];
-    var pd = progs[pid];
+    var p = pd[pid];
 
-    if ((pd[0]&4) == 0) {
+    if ((p[0]&4) == 0) {
       if (start < last_seq_finish+sdt) { // program will be delayed, so reinsert and try again
         program_times.push([last_seq_finish+sdt, pid]);
         program_times = sortSched(program_times);
@@ -105,14 +108,14 @@ function doSimulation() { // Create schedule by a full program simulation, was d
     for(sid=0;sid<nst;sid++) { // for each station...
       bid = sid>>3;
       s = sid % 8;
-      if ((pd[7+bid]&(1<<s)) == 0)
+      if ((p[7+bid]&(1<<s)) == 0)
         continue;
 
-      duration = pd[6];
-      if ((pd[0]&2) == 0 && (iw[bid]&(1<<s)) == 0) // adjust duration by water level
+      duration = p[6];
+      if ((p[0]&2) == 0 && (iw[bid]&(1<<s)) == 0) // adjust duration by water level
         duration = parseInt(duration*wl/100*wlx/100);
 
-      if ((pd[0]&4) == 0) { // seq schedule
+      if ((p[0]&4) == 0) { // seq schedule
         st_array[sid] = Math.max(st_array[sid], last_seq_finish, bandelay_array[sid]);
         et_array[sid] = Math.max(et_array[sid], st_array[sid]+duration);
 
@@ -121,7 +124,7 @@ function doSimulation() { // Create schedule by a full program simulation, was d
         seq_et_array[sid] = Math.max(seq_et_array[sid], et_array[sid]);
         last_seq_finish = Math.max(last_seq_finish, seq_et_array[sid]) + sdt;
       }
-      else if ((pd[0]&2) == 0) { // fixed schedule
+      else if ((p[0]&2) == 0) { // fixed schedule
         st_array[sid] = Math.max(st_array[sid], bandelay_array[sid], start);
         et_array[sid] = Math.max(et_array[sid], st_array[sid]+duration);
 
@@ -132,13 +135,13 @@ function doSimulation() { // Create schedule by a full program simulation, was d
         ban_st_array[sid] = Math.max(ban_st_array[sid], start);
         ban_et_array[sid] = Math.max(ban_et_array[sid], ban_st_array[sid]+duration);
         banstarts[sid].push({start:ban_st_array[sid]/60, program: pid+1, stop:ban_et_array[sid]/60});
-        if ((pd[0]&8) == 8) // ban stop
+        if ((p[0]&8) == 8) // ban stop
           banstop_array[sid] = Math.max(banstop_array[sid], ban_et_array[sid]);
-        else if ((pd[0]&16) == 16) // ban delay
+        else if ((p[0]&16) == 16) // ban delay
           bandelay_array[sid] = Math.max(bandelay_array[sid], ban_et_array[sid]);
       }
 
-      if ((pd[0]&2) == 0) // no ban
+      if ((p[0]&2) == 0) // no ban
         schedule.push({ // data for creating home page program display
                       program: pid+1, // program number
                       station: sid, // station index
@@ -167,7 +170,7 @@ function doSimulation() { // Create schedule by a full program simulation, was d
       var prog_id = sched.program;
       var start = sched.start;
       var end = start + sched.duration/60;
-      if (prog_id <= progs.length && (progs[prog_id-1][0]&2) == 0 && banstarts[sid].length > 0) {
+      if (prog_id <= nprogs && (pd[prog_id-1][0]&2) == 0 && banstarts[sid].length > 0) {
         var entry = banstarts[sid][0];
         while (start > entry.start) {
           banstarts[sid].shift();
@@ -185,7 +188,7 @@ function doSimulation() { // Create schedule by a full program simulation, was d
           // **Add an entry for the remaining time.
           // This is a rough approximation.  It does not correctly factor in staggered seq stations in splitting. 
           // Do not delay into next day.
-          if (entry.program <= progs.length && (progs[entry.program-1][0]&16) != 0 && new_entry.start < 24*60)
+          if (entry.program <= nprogs && (pd[entry.program-1][0]&16) != 0 && new_entry.start < 24*60)
             new_entries.push(new_entry);
         }
       }
@@ -236,9 +239,9 @@ function fromClock(clock) {
 
 function programName(p) {
 	if (p == "Manual" || p == "Run-once") {
-		return p + " Program";
+		return p;
 	} else {
-		return "Program " + p;
+		return pnames[parseInt(p)-1];
 	}
 }
 
@@ -266,15 +269,21 @@ function displaySchedule(schedule) {
 						relativeStart < 0 && relativeEnd >= 60) {
 						var barStart = Math.max(0,relativeStart)/60;
 						var barWidth = Math.max(0.05,Math.min(relativeEnd, 60)/60 - barStart);
-						var programClass;
+                                                var name, programClass, markerClass;
 						if (schedule[s].program == "Manual" || schedule[s].program == "Run-once") {
-							programClass = "programManual";
+						    programClass = "programManual";
 						} else {
-							programClass = "program" + (parseInt(schedule[s].program)+1)%10;
+						    programClass = "program" + (parseInt(schedule[s].program)+1)%10;
 						}
-						programClassesUsed[schedule[s].program] = programClass;
-						var markerClass = (schedule[s].date == undefined ? "schedule" : "history");
-						boxes.append("<div class='scheduleMarker " + programClass + " " + markerClass + "' style='left:" + barStart*100 + "%;width:" + barWidth*100 + "%' data='" + programName(schedule[s].program) + ": " + schedule[s].label + "'></div>");
+						if (schedule[s].date == undefined) {
+                                                    markerClass = "schedule";
+                                                    name = programName(schedule[s].program)
+                                                } else {
+                                                    markerClass ="history";
+                                                    name = schedule[s].programname;
+                                                }
+						programClassesUsed[schedule[s].program] = {clss: programClass, name: name};
+						boxes.append("<div class='scheduleMarker " + programClass + " " + markerClass + "' style='left:" + barStart*100 + "%;width:" + barWidth*100 + "%' data='" + name + ": " + schedule[s].label + "'></div>");
 					}
 				}
 			}
@@ -289,7 +298,9 @@ function displaySchedule(schedule) {
 	});
 	jQuery("#legend").empty();
 	for (var p in programClassesUsed) {
-		jQuery("#legend").append("<span class='" + programClassesUsed[p] + "'>" + programName(p) + "</span>");
+                var nm = programClassesUsed[p].name;
+                var cl = programClassesUsed[p].clss;
+		jQuery("#legend").append("<span class='" + cl + "'>" + nm + "</span>");
 	}
 	jQuery(".scheduleMarker").mouseover(scheduleMarkerMouseover);
 	jQuery(".scheduleMarker").mouseout(scheduleMarkerMouseout);
@@ -311,10 +322,12 @@ function displayProgram() { // Controls home page irrigation timeline
 			for (var l in log) {
 				log[l].duration = fromClock(log[l].duration);
 				log[l].start = fromClock(log[l].start)/60;
-				if (log[l].date != visibleDate) {
-					log[l].start -= 24*60;
+				if (log[l].date != visibleDate) { // capture what is left after midnight
+                                        min_before_midnight = 24*60 - log[l].start;
+                                        log[l].duration -= min_before_midnight * 60;
+					log[l].start = 0;
 				}
-				log[l].label = toClock(log[l].start, timeFormat) + " for " + toClock(log[l].duration, 1);
+				log[l].label = toClock(log[l].start, timeFormat) + " for " + toClock(log[l].duration/60, 1);
 			}
 			if (toXSDate(displayScheduleDate) == toXSDate(new Date(Date.now() + cliTzOffset - devTzOffset))) {
                                 var schedule = doSimulation();

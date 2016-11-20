@@ -16,6 +16,14 @@ $code:
             jQuery("form#ds input[name='substation']").val(sub);
             jQuery("form#ds").submit();
         });
+
+        jQuery("button.cDeleteit").click(function(){
+            var params = jQuery(this).attr("data");
+            var paramo = JSON.parse(params);
+            var sub = paramo["substation"];
+            jQuery("form#del input[name='substation']").val(sub);
+            jQuery("form#del").submit();
+        });
     });
 
     function refresh() {
@@ -31,13 +39,24 @@ $code:
     <input type="hidden" name="continuation" value="${continuation}">
 </form>
 
+<form name="del" id="del" action="$app_path('/susde')" method="get">
+    <input type="hidden" name="substation">
+    <input type="hidden" name="continuation" value="${continuation}">
+    <input type="hidden" name="head" value="${head}">
+</form>
+
 <h1>Substation ${head}</h1>
 
 <div id="programs">
     $for subid in range(1,nsubs):
         $ sub = subinfo[subid]
+        $ subname = sub['name'] + ' --'
+        $ subproxy = ' ip: ' + sub['proxy'] + ' proxied via'
+        $ subip = ' ip: ' + sub['ip'] + ':' + str(sub['port'])
+        $ subname += '' if sub['proxy'] == '' else subproxy
+        $ subname += subip
         $ params = {'substation':subid}
         $ jparams = json.dumps(params)
         $ danger = '' if sub['status'] == 'ok' else 'danger'
-        <br><p><button class="cDoit ${danger}" data="${jparams}">${sub['name']}</button></p>
+        <br><p><button class="cDeleteit" data="${jparams}">Delete</button>&nbsp;<button class="cDoit ${danger}" data="${jparams}">${subname}</button></p>
 </div>

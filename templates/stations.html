@@ -1,17 +1,22 @@
-$def with (substation, snames, sd)
+$def with (substation, radioboards, snames, snotes, sd)
 
-$var title: $_('Irricloud Stations')
+$var title: $_('Irricloud Zones')
 $var page: stations
 
 <script>
     // Initialize behaviors
     jQuery(document).ready(function(){
         var mas = ${sd['mas']};
-        var nbrd = ${sd['nbrd']};
+        var nst = ${sd['nst']};
+        var nbrd = ~~((nst+7)/8);
+
+        jQuery("button#nAdd").click(function(){
+            jQuery.getJSON(baseUrl + '/ars?substation=${substation}');
+        });
 
         jQuery("button#cSubmit").click(function(){
+            var s, bid, sid, vm;
             if (mas>0) {
-                var s, bid, sid, vm;
                 for (bid=0; bid<nbrd; bid++) {
                     vm = 0;
                     for (s=0; s<8; s++) {
@@ -28,16 +33,18 @@ $var page: stations
                     jQuery("#m"+bid).val(vm);
                 }
             }
-            var vi, vs, vw;
+            var vi, vs, vw, vss;
             for (bid=0; bid<nbrd; bid++) {
                 vi = 0;
                 vs = 0;
                 vw = 0;
+                vss = 0;
                 for (s=0; s<8; s++) {
                     sid = bid*8 + (7-s);
                     vi = vi<<1;
                     vs = vs<<1;
                     vw = vw<<1;
+                    vss = vss<<1;
                     if (sid == mas-1) {
                         vi = vi + 1;
                         vs = vs + 1;
@@ -53,16 +60,26 @@ $var page: stations
                     if (jQuery("#show"+sid).is(":checked")) {
                         vs = vs + 1;
                     }
+                    if (jQuery("#stops"+sid).is(":checked")) {
+                        vss = vss + 1;
+                    }
                 }
                 jQuery("#i"+bid).val(vi);
                 jQuery("#sh"+bid).val(vs);
                 jQuery("#w"+bid).val(vw);
+                jQuery("#ss"+bid).val(vss);
             }
             jQuery("#sf").submit();
         });
+
         jQuery("button#cResetNames").click(function(){
             jQuery("input[type='text']").each(function () {
-                jQuery(this).val("S" + (parseInt(jQuery(this).attr("name").substring(1)) + 1));
+                var streamid = parseInt(jQuery(this).attr("name").substring(1)) + 1;
+                if (streamid < 10) {
+                    jQuery(this).val("S0" + streamid);
+                } else {
+                    jQuery(this).val("S" + streamid)
+                }
             });
             jQuery(".stationShow input").each(function () {
                 jQuery(this).prop('checked', true);
@@ -75,20 +92,18 @@ $var page: stations
 
         jQuery("select.mas").change(function(){
             mas = parseInt(jQuery("select.mas").val());
-            jQuery.getJSON(baseUrl + '/csm?substation=${substation}&omas='+mas)
-            window.location = baseUrl + '/vs?substation=${substation}'
-        });        
-
-        jQuery("#onbrd").change(function(){
-            nbrd = parseInt(jQuery("#onbrd").val());
-            jQuery.getJSON(baseUrl + '/csb?substation=${substation}&onbrd='+nbrd)
-            window.location = baseUrl + '/vs?substation=${substation}'
+            jQuery.getJSON(baseUrl + '/csm?substation=${substation}&omas='+mas);
+            window.location = baseUrl + '/vs?substation=${substation}';
         });        
     });
 
 </script>
+<form id="vsf" name="vsf" action="$app_path('/vs')" method="get">
+    <input type="hidden" name="substation" value="${substation}"/>
+</form>
+
 <div id="stations">
-    <div class="title">$_('Configure Stations')</div>
+    <div class="title">$_('Configure Zones')</div>
     <form id="sf" name="sf" action="$app_path('/cs')" method="get">
         <input type="hidden" name="substation" value="${substation}"/>
         $code:
@@ -103,31 +118,33 @@ $var page: stations
            output += "<em>Master on delay: </em><input name='omton' type='number' style='text-align:right' min='-600' max='600' size='3' maxlength='3' value='" + str(sd['mton']) + "'>\n"
            output += "<em>Master off delay: </em><input name='omtoff' type='number' style='text-align:right' min='-600' max='600' size='3' maxlength='3' value='" + str(sd['mtoff']) + "'>\n"
            output += "<br>\n"
-           output += "<em>Station board count: </em><input id='onbrd' name='onbrd' type='number' style='text-align:right' min='0' max='8' size='1' maxlength='1' value='" + str(sd['nbrd']) + "'>\n"
-           output += "<em>Station delay: </em><input name='osdt' type='number' style='text-align:right' min='-600' max='600' size='3' maxlength='3' value='" + str(sd['sdt']) + "'>\n"
+           output += "<em>Zone delay: </em><input name='osdt' type='number' style='text-align:right' min='-600' max='600' size='3' maxlength='3' value='" + str(sd['sdt']) + "'>\n"
         $:{output}
         <br><br>
-        <table class="stationList">
-            <tr>
-                <th class="stationNumber">$_('Station')</th>
-                <th class="stationName">$_('Name')</th>
-                <th class="stationShow">$_('Enabled?')</th>
-<!--
-                <th class="stationIgnore">$_('Ignore Rain?')</th>
--->
-                <th class="stationIgnoreWL">$_('Ignore Weather?')</th>
-                <th class="stationMaster">$_('Activate Master?')</th>
-            </tr>
-            $for bid in range(sd['nbrd']):
-                $for s in range(0,8):
-                    $ sid = bid*8 + s;
+        $if sd['nst']-sd['radiost'] > 0:
+            <table class="stationList">
+                <tr>
+                    <th class="stationNumber">$_('Zone')</th>
+                    <th class="stationName">$_('Name')</th>
+                    <th class="stationShow">$_('Enabled')</th>
+                    <!--
+                    <th class="stationIgnore">$_('Ignore Rain?')</th>
+                    -->
+                    <th class="stationIgnoreWL">$_('Ignore Weather')</th>
+                    <th class="stationMaster">$_('Use Master')</th>
+                    <th class="stationShow">$_('Stop Zone')</th>
+                    <th class="stationName">$_('Notes')</th>
+                </tr>
+                $for sid in range(sd['nst']-sd['radiost']):
+                    $ bid = sid // 8
+                    $ s = sid % 8
                     <tr>
                         <td class="stationNumber">${sid + 1}</td>
                         <td class="stationName">
                             <input type="text" size="${sd['snlen']}" maxlength="${sd['snlen']}" value="${snames[sid]}" name="s${sid}" id="n${sid}">
                         </td>
                         $if sid == sd['mas'] - 1:
-                            <td class="stationMaster" colspan="3">$_('(Master valve)')</td>
+                            <td class="stationMaster" colspan="4">$_('(Master valve)')</td>
                         $else:
                             <td class="stationShow">
                                 <input type="checkbox" ${"checked" if sd['show'][bid]&(1<<s) else ""} id="show${sid}">
@@ -138,21 +155,93 @@ $var page: stations
                             <td class="stationMaster">
                                 <input type="checkbox" ${"checked" if sd['mo'][bid]&(1<<s) else ""} id="mc${sid}">
                             </td>
+                            <td class="stationShow">
+                                <input type="checkbox" id="stops${sid}">
+                            </td>
+                        <td class="stationNotes">
+                            <textarea form="sf" rows="1" cols="${sd['snlen']}" name="notes${sid}" id="notes${sid}">${snotes[sid]}</textarea>
+                        </td>
                     </tr>
-        </table>
+            </table>
+            <p></p>
 
-        <p></p>
+        $if sd['radiost'] > 0 or (sd['radio_present'] and len(radioboards) > 0):
+            $if sd['nst'] - sd['radiost'] > 0:
+                <br><br>
+            <div class="title">$_('Radio Zones')    
+                <button id="nAdd" class="add" form="vsf">$_('Add a Radio Zone')</button>
+            </div>
+            $if sd['radiost'] > 0:
+                <table class="stationList">
+                    <tr>
+                        <th class="stationNumber">$_('Zone')</th>
+                        <th class="stationName">$_('Name')</th>
+                        <th class="stationShow">$_('Enabled')</th>
+                        <th class="stationName">$_('Radio')</th>
+                        <th class="stationName">$_('Position')</th>
+                        <th class="stationIgnoreWL">$_('Ignore Weather')</th>
+                        <th class="stationMaster">$_('Use Master')</th>
+                        <th class="stationShow">$_('Stop Zone')</th>
+                        <th class="stationName">$_('Notes')</th>
+                    </tr>
+                    $for sid in range(sd['nst']-sd['radiost'], sd['nst']):
+                        $ bid = sid // 8
+                        $ s = sid % 8
+                        <tr>
+                            <td class="stationNumber">${sid + 1}</td>
+                            <td class="stationName">
+                                <input type="text" size="${sd['snlen']}" maxlength="${sd['snlen']}" value="${snames[sid]}" name="s${sid}" id="n${sid}">
+                            </td>
+                            $if sid == sd['mas'] - 1:
+                                <td class="stationMaster" colspan="6">$_('(Master valve)')</td>
+                            $else:
+                                <td class="stationShow">
+                                    <input type="checkbox" ${"checked" if sd['show'][bid]&(1<<s) else ""} id="show${sid}">
+                                </td>
+                                $ rsid = sid - (sd['nst']-sd['radiost'])
+                                <td class="stationShow">
+                                    <select name="radio_bd${sid}">
+                                    <option value="" ${" selected" if sd['radio_zones'][rsid]['radio_bd'] == '' else ""}><b>None</b></option>
+                                    $for t in radioboards:
+                                        <option value="${t}" ${" selected" if sd['radio_zones'][rsid]['radio_bd']==t else ""}><b>${t}</b></option>
+                                    </select>
+                                </td>
+                                <td class="stationShow">
+                                    <select name="radio_zone_pos${sid}">
+                                    <option value="-1" ${" selected" if sd['radio_zones'][rsid]['zone_pos'] == -1 else ""}><b>None</b></option>
+                                    $for t in range(3):
+                                        <option value="${t}" ${" selected" if sd['radio_zones'][rsid]['zone_pos']==t else ""}><b>${str(t+1)}</b></option>
+                                    </select>
+                                </td>
+                                <td class="stationIgnoreWL">
+                                    <input type="checkbox" ${"checked" if sd['iw'][bid]&(1<<s) else ""} id="wlc${sid}">
+                                </td>
+                                <td class="stationMaster">
+                                    <input type="checkbox" ${"checked" if sd['mo'][bid]&(1<<s) else ""} id="mc${sid}">
+                                </td>
+                                <td class="stationShow">
+                                    <input type="checkbox" id="stops${sid}">
+                                </td>
+                            <td class="stationNotes">
+                                <textarea form="sf" rows="1" cols="${sd['snlen']}" name="notes${sid}" id="notes${sid}">${snotes[sid]}</textarea>
+                            </td>
+                        </tr>
+                </table>
+                <p></p>
 
-        $for bid in range(sd['nbrd']):
+        $for bid in range((sd['nst']+7)//8):
             <input type="hidden" id="i${bid}" name="i${bid}"/>
             <input type="hidden" id="sh${bid}" name="sh${bid}"/>
             <input type="hidden" id="w${bid}" name="w${bid}"/>
             <input type="hidden" id="m${bid}" name="m${bid}"/>
+            <input type="hidden" id="ss${bid}" name="ss${bid}"/>
     </form>
 </div>
 
 <div id="controls">
     <button id="cSubmit" class="submit">$_('Submit Changes')</button>
+<!--
     <button id="cResetNames" class="refresh">$_('Reset Names')</button>
+-->
     <button id="cCancel" class="cancel danger">$_('Cancel')</button>
 </div>

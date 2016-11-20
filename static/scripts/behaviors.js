@@ -55,6 +55,12 @@ jQuery(document).ready(function(){
 	jQuery("button#bOptions").click(function(){
 		window.location = baseUrl + "/vo";
 	});
+	jQuery("button#bUpdates").click(function(){
+		window.location = baseUrl + "/UPs";
+	});
+	jQuery("button#bSensors").click(function(){
+		window.location = baseUrl + "/lda";
+	});
 	jQuery("button#bStations").click(function(){
 		window.location = baseUrl + "/vs";
 	});
@@ -64,6 +70,9 @@ jQuery(document).ready(function(){
 	jQuery("button#bRunOnce").click(function(){
 		window.location = baseUrl + "/vr";
 	});
+	jQuery("button#bCamera").click(function(){
+		window.location = baseUrl + "/ca";
+	});
 	jQuery("button#bLog").click(function(){
 		window.location = baseUrl + "/vl";
 	});
@@ -71,8 +80,8 @@ jQuery(document).ready(function(){
 		window.location = baseUrl + "/logout";
 	});
 
-    jQuery("button#bHelp").click(function(){
-		window.open("https://github.com/bkoblenz/Irricloud/wiki", "_blank");
+        jQuery("button#bHelp").click(function(){
+		window.open("https://github.com/Irricloud/Irricloud/wiki", "_blank");
 	});
 
 	// start the clock now, and update every second

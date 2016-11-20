@@ -1,0 +1,124 @@
+$def with (substation, sd, senstype, sensnames, samples)
+
+$var title: $_('Irricloud Multigraph Sensor Log')
+$var page: sensors
+
+<script src="static/amcharts/amcharts.js" type="text/javascript"></script>
+<script src="static/amcharts/serial.js" type="text/javascript"></script>
+
+<script>
+
+    var colors = ["#4169E1", "#2E8B57", "#FA8072", "#8B4513", "#663399", "#F4A460", "#8B4513"];
+
+    $if senstype in ['Temperature', 'Moisture', 'Leak Detector']:
+        var chart;
+        var chartData = [];
+        var sensnames = $:{[s.encode('utf-8') for s in sensnames]}; // save names
+        $for s in samples:
+            var d = {};
+            $for k,v in s.iteritems():
+                $ key = k.encode('utf-8')
+                $ val = v.encode('utf-8')
+                $if senstype == 'Temperature' and sd['tu'] == 'F' and key != 'datetime':
+                    $ val = str(float(val)*1.8 + 32)
+                d["${key}"] = "${val}"
+            chartData.push(d);
+
+        AmCharts.ready(function() {
+            chart = new AmCharts.AmSerialChart();
+            chart.dataProvider = chartData;
+            chart.categoryField = "datetime";
+            chart.valueAxes.push({gridAlpha:0});
+            chart.addListener('dataUpdated', zoomChart);
+            chart.addListener('zoomed', handleZoom);
+            chart.legend = {'useGraphSettings':true};
+
+            var pos = 0;
+            $for sensname in sensnames:
+                var graph = new AmCharts.AmGraph();
+                graph.valueField = "${sensname}";
+                graph.title = "${sensname}"
+                graph.lineColorField = "lineColor";
+                //graph.balloonText = "[[category]]: <b>[[value]]</b>";
+                graph.balloonText = "<b>[[value]]</b>";
+                graph.type = "line";
+                graph.bullet = "round";
+                graph.hideBulletsCount = 100;
+                graph.lineColor = colors[pos%colors.length];
+                graph.fillAlphas = 0;
+                // graph.fillAlphas = 0.6;
+                chart.addGraph(graph);
+                pos += 1;
+
+            var categoryAxis = chart.categoryAxis;
+            categoryAxis.gridAlpha = 0;
+            //categoryAxis.labelRotation = 45;
+            categoryAxis.parseDates = true;
+            categoryAxis.minPeriod = "ss";
+            chart.dataDateFormat = "YYYY-MM-DD JJ:NN:SS";
+
+            //        var valueAxes = chart.valueAxes;
+            //        var valueAxis = valueAxes[0];
+            //        valueAxis.gridAlpha = 0;
+
+            var chartCursor = new AmCharts.ChartCursor();
+            chartCursor.categoryBalloonDateFormat = "YYYY-MM-DD JJ:NN:SS";
+            chartCursor.categoryBalloonText = "[[category]]";
+            chartCursor.categoryLineBalloonEnabled = true;
+            //chartCursor.bulletsEnabled = true;
+            //chartCursor.limitToGraph = graph;
+            chartCursor.valueLineBalloonEnabled = false;
+            chartCursor.cursorPosition = "mouse"
+            chart.addChartCursor(chartCursor);
+
+            var chartScrollbar = new AmCharts.ChartScrollbar();
+            //chartScrollbar.scrollbarHeight = 30;
+            //chartScrollbar.graph = graph; // as we want graph to be displayed in the scrollbar, we set graph here
+            //chartScrollbar.graphType = "line";                
+            //chartScrollbar.gridCount = 8;
+            //chartScrollbar.color = "#FFFFFF";
+            chart.addChartScrollbar(chartScrollbar);
+
+            chart.write('chartdiv');
+        });
+
+        // this method is called when chart is first inited as we listen for "dataUpdated" event
+        function zoomChart() {
+            // different zoom methods can be used - zoomToIndexes, zoomToDates, zoomToCategoryValues
+            var elements = Math.min(100, chartData.length)
+            chart.zoomToIndexes(chartData.length - elements, chartData.length-1);
+        }
+
+        // this method is called each time the selected period of the chart is changed
+        function handleZoom(event) {
+            var startDate = event.startDate;
+            var endDate = event.endDate;
+            // document.getElementById("startDate").value = AmCharts.formatDate(startDate, "DD/MM/YYYY");
+            // document.getElementById("endDate").value = AmCharts.formatDate(endDate, "DD/MM/YYYY");
+            chart.validateNow();
+        }
+
+    // Initialize behaviors
+    jQuery(document).ready(function(){
+        jQuery("button#nRefresh").click(function(){
+            window.location= baseUrl + "/ldmg?substation=${substation}&senstype=${senstype}";
+        });
+    });
+
+</script>
+
+<div id="options">
+    <div class="title">$_(senstype + ' Sensors Logs ')</div>
+</div>
+
+<div id="log">
+
+    $if senstype in ['Temperature', 'Moisture', 'Leak Detector'] and len(samples) > 0:
+        <div id="chartdiv" style="width: 640px; height: 400px;"></div>
+        <p>&nbsp</p>
+
+</div>
+
+<div id="controls">
+    <button id="nRefresh" class="refresh">$_('Refresh')</button>
+</div>

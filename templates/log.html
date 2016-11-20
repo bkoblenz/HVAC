@@ -1,6 +1,6 @@
-$def with (substation, sd, records)
+$def with (substation, snames, sd, wrecords, erecords)
 
-$var title: $_('Irricloud Log')
+$var title: $_('Irricloud Logs')
 $var page: log
 $code:
 	if sd['lg'] == 1:
@@ -29,7 +29,12 @@ $code:
         jQuery("button#nRefresh").click(function(){
             window.location= baseUrl + "/vl?substation=${substation}";
         });
-        jQuery("button#nDeleteAll").click(function(){
+        jQuery("button#nDeleteWater").click(function(){
+            jQuery("form#df input[name='kind']").val('wlog');
+            jQuery("form#df").submit();
+        });
+        jQuery("button#nDeleteEmail").click(function(){
+            jQuery("form#df input[name='kind']").val('elog');
             jQuery("form#df").submit();
         });
     });
@@ -37,14 +42,15 @@ $code:
 </script>
 
 <div id="options">
-    <div class="title">$_('Log ')$log_state</div>
+    <div class="title">$_('Logs ')$log_state</div>
     <form method="get" action="${app_path('/cl')}" name="df" id="df">
+        <input type="hidden" name="kind"/>
         <input type="hidden" name="substation" value="${substation}"/>
     </form>
 </div>
 
 <div id="log">
-    <p>$_('Total number of records: ')${len(records)} (${_("no") if sd['lr']==0 else sd['lr']}$_(' limit'))</p>
+    <p>$_('Total number of watering records: ')${len(wrecords)} (${_("no") if sd['lr']==0 else sd['lr']}$_(' limit'))</p>
     <p>$_('Download log as ')<a href="${app_path('/wl?substation='+str(substation))}">csv</a>.</p>
 
     <table class="logList">
@@ -55,13 +61,37 @@ $code:
             <th>$_('Message')</th>
         </tr>
         $ odd = 1
-        $for r in records:
+        $for r in wrecords:
             $ event = r #  ast.literal_eval(json.loads(r))
             <tr class="log_rec ${'odd' if odd else 'even'}">
-                <td align='center'>${event["time"]}</td>
+                <td align='center'>${formatTime(event["time"])}</td>
                 <td align='center'>${event["date"]}</td>
                 <td align='center'>${event["mode"]}</td>
                 <td align='center'>${event["message"]}</td>
+            </tr>
+            $ odd = 1 - odd
+    </table>
+
+    <p>$_('Total number of email records: ')${len(erecords)} (${_("no") if sd['lr']==0 else sd['lr']}$_(' limit'))</p>
+    <p>$_('Download log as ')<a href="${app_path('/el?substation='+str(substation))}">csv</a>.</p>
+
+    <table class="logList">
+        <tr class="log_rec">
+            <th>$_('Date')</th>
+            <th>$_('Time')</th>
+            <th>$_('Email Status')</th>
+            <th>$_('Subject')</th>
+            <th>$_('Body')</th>
+        </tr>
+        $ odd = 1
+        $for r in erecords:
+            $ event = r #  ast.literal_eval(json.loads(r))
+            <tr class="log_rec ${'odd' if odd else 'even'}">
+                <td align='center'>${event["date"]}</td>
+                <td align='center'>${formatTime(event["time"])}</td>
+                <td align='center'>${event["status"]}</td>
+                <td align='center'>${event["subject"]}</td>
+                <td align='center'>${event["body"]}</td>
             </tr>
             $ odd = 1 - odd
     </table>
@@ -70,5 +100,6 @@ $code:
 
 <div id="controls">
     <button id="nRefresh" class="refresh">$_('Refresh')</button>
-    <button id="nDeleteAll" class="delete danger">$_('Clear Log')</button>
+    <button id="nDeleteWater" class="delete danger">$_('Clear Watering Log')</button>
+    <button id="nDeleteEmail" class="delete danger">$_('Clear Email Log')</button>
 </div>

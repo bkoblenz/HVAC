@@ -1,0 +1,9 @@
+Description: This plugins identifies leaks and clogs in zones.  This software is restricted use; not available under GPL.
+Author: Brian Koblenz
+
+##### List all plugin files below preceded by a blank line [file_name.ext path] relative to OSPi directory #####
+
+sensors.py plugins
+sensors.html templates
+sensors.json data (generated)
+sensors..manifest plugins/manifests

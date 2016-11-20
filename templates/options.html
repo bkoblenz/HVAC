@@ -7,12 +7,21 @@ $code:
 	languages = i18n.languages
 	langKeys = i18n.languages.keys()
 	langKeys.sort()
+	snames = gv.snames
         sd = gv.sd
 
 <script>
     var errorCode = "${errorCode}";
     // Initialize behaviors
     jQuery(document).ready(function(){
+
+        function stopRKey(evt) { 
+          var evt = (evt) ? evt : ((event) ? event : null); 
+          var node = (evt.target) ? evt.target : ((evt.srcElement) ? evt.srcElement : null); 
+          if ((evt.keyCode == 13) && (node.type=="text"))  {return false;} 
+        } 
+
+        document.onkeypress = stopRKey;
 
         jQuery("button#tooltips").click(function(){
             var visible = jQuery(this).text() == $:{json.dumps(_('Hide Tooltips'), ensure_ascii=False)};
@@ -24,6 +33,10 @@ $code:
             jQuery("input[name='rbt']").val(1);
             jQuery("form[name='of']").submit();
         });
+	jQuery("button#cRebootAll").click(function(){
+            jQuery("input[name='rbt']").val(2);
+            jQuery("form[name='of']").submit();
+	});
 
         jQuery("button#cRestart").click(function(){
             jQuery("input[name='rstrt']").val(1);
@@ -34,11 +47,24 @@ $code:
             jQuery("input[name='rshutdown']").val(1);
             jQuery("form[name='of']").submit();
         });
+	jQuery("button#cShutdownAll").click(function(){
+            jQuery("input[name='rshutdown']").val(2);
+            jQuery("form[name='of']").submit();
+	});
 
         jQuery("button#cNetwork").click(function(){
-            jQuery("input[name='netconfig']").val(1);
-            jQuery("form[name='of']").submit();
+            var r = confirm("Do you really want to stop watering and start configuration mode?");
+            if (r) {
+                jQuery("input[name='netconfig']").val(1);
+                jQuery("form[name='of']").submit();
+            }
         });
+	jQuery("button#cSaveConfig").click(function(){
+            window.location = baseUrl + "/sc";
+	});
+	jQuery("button#cRestoreConfig").click(function(){
+            window.location = baseUrl + "/rc";
+	});
 
         jQuery("button#cSubmit").click(function(){
             // process time zone value
@@ -78,6 +104,7 @@ $code:
     });
 
 </script>
+
 <div id="options">
     <div class="title">$_('Edit Options')</div>
     <button id="tooltips">$_('Show Tooltips')</button>
@@ -101,6 +128,31 @@ $code:
             category = opt[4]
 
             if category != oldcategory:
+                if category == 'Text/Email' and oldcategory != 'Text/Email':
+                    output += '<table class="option">'
+                    output += "<tr>"
+                    output += "<th>" + _('Email Address') + "</th>"
+                    output += "<th>" + _('10 digit Phone Number') + "</th>"
+                    output += "<th>" + _('Phone Provider') + "</th>"
+                    output += "</tr>\n"
+                    for i in range(5):
+                        output += "<tr>"
+                        output += '<td align="center">'
+                        output += '<input name="oteadr' + str(i) + '" type="text" value="' + sd['teadr'+str(i)] + '">'
+                        output += "</td>"
+                        output += '<td align="center">'
+                        output += '<input name="otesmsnbr' + str(i) + '" type="text" value="' + sd['tesmsnbr'+str(i)] + '">'
+                        output += "</td>"
+                        output += "<td>"
+                        output += '<select name="otesmsprovider' + str(i) + '">'
+                        for opt in ['AT&T', 'Cingular', 'Cricket', 'Nextel', 'Sprint', 'T-Mobile', 'TracFone', 'U.S. Cellular', 'Verizon', 'Virgin']:
+                            output += '<option value="' + opt + '"'
+                            output += ' selected' if sd['tesmsprovider'+str(i)]==opt else ''
+                            output += '>' + opt + '</option>'
+                        output += "</select>"
+                        output += "</td>"
+                        output += "</tr>"
+                    output += "</table>\n"
                 output += categoryCloser + "\n\n<div class='category collapsible collapsed'><h4>" + category + "</h4>"
                 categoryCloser = "</div>"
             oldcategory = category
@@ -126,42 +178,30 @@ $code:
                 for tz in tzl:
                     output += "<option " + ("selected " if value==tz else "") + "value='"+tz+"'>"+tz+"</option>\n"
                 output += "</select>\n"
+            elif name == "mas":
+                output += "<select name='omas'>\n"
+                output += "<option " + ("selected " if value==0 else "") + "value='0'>"+_('None')+"</option>\n"
+                for i in range(gv.sd['nst']):
+                    bid = i // 8
+                    sid = i % 8
+                    if (gv.sd['show'][bid]>>sid)&1 == 1:
+                        output += "<option " + ("selected " if value==i+1 else "") + "value='" + str(i+1) + "'>" + snames[i] + "  (Station " + str(i+1) + ")</option>\n"
+                output += "</select>\n"
             elif name == "htp":
                 output += "<input name='ohtp' type='text' size='5' maxlength='5' value='" + str(value) + "'>\n"
             else:
-                output += "<input name='o" + name + "' type='text' size='4' maxlength='4' value='" + str(value) + "'>\n"
+                output += "<input name='o" + name + "' type='text' size='6' maxlength='6' value='" + str(value) + "'>\n"
 
             output += "<span class='tooltip'>" + tooltip + "</span>\n"
             output += "</div>\n\n"
-        if oldcategory == 'Text/Email':
-            output += '<table class="option">'
-            output += "<tr>"
-            output += "<th>" + _('Email Address') + "</th>"
-            output += "<th>" + _('10 digit Phone Number') + "</th>"
-            output += "<th>" + _('Phone Provider') + "</th>"
-            output += "</tr>\n"
-            for i in range(2):
-                output += "<tr>"
-                output += '<td align="center">'
-                output += '<input name="oteadr' + str(i) + '" type="text" value="' + sd['teadr'+str(i)] + '">'
-                output += "</td>"
-                output += '<td align="center">'
-                output += '<input name="otesmsnbr' + str(i) + '" type="text" value="' + sd['tesmsnbr'+str(i)] + '">'
-                output += "</td>"
-                output += "<td>"
-                output += '<select name="otesmsprovider' + str(i) + '">'
-                for opt in ['AT&T', 'Cingular', 'Cricket', 'Nextel', 'Sprint', 'T-Mobile', 'TracFone', 'U.S. Cellular', 'Verizon', 'Virgin']:
-                    output += '<option value="' + opt + '"'
-                    output += ' selected' if sd['tesmsprovider'+str(i)]==opt else ''
-                    output += '>' + opt + '</option>'
-                output += "</select>"
-                output += "</td>"
-                output += "</tr>"
-            output += "</table>\n"
-        output += categoryCloser + "<div class='category collapsible collapsed'><h4>"+_('System Restart')+"</h4>"
+        output += categoryCloser + "<div class='category collapsible collapsed'><h4>"+_('Administration')+"</h4>"
         output += "<div class='option'>"
         output += "&nbsp;<button id='cShutdown' class='reboot danger' title=" + json.dumps(_('Power down hardware'), ensure_ascii=False) + ">" + _('Shutdown')+"</button>"
+        if sd['master']:
+            output += "&nbsp;<button id='cShutdownAll' class='reboot danger' title=" + json.dumps(_('Power down all substations'), ensure_ascii=False) + ">" + _('Shutdown All')+"</button>"
         output += "&nbsp;<button id='cReboot' class='reboot danger' title=" + json.dumps(_('Reboot hardware'), ensure_ascii=False) + ">" + _('Reboot')+"</button>"
+        if sd['master']:
+            output += "&nbsp;<button id='cRebootAll' class='reboot danger' title=" + json.dumps(_('Reboot all substations'), ensure_ascii=False) + ">" + _('Reboot All')+"</button>"
         output += "&nbsp;<button id='cNetwork' class='reboot danger' title=" + json.dumps(_('Reconfigure Networking and Reboot hardware'), ensure_ascii=False) + ">" + _('Network Reconfiguration')+"</button>"
         output += "</div>\n"
         output += categoryCloser
@@ -176,4 +216,8 @@ $code:
 <div id="controls">
     <button id='cSubmit' class="submit">$_('Submit Changes')</button>
     <button id='cCancel' class="cancel danger">$_('Cancel')</button>
+    <button id="cSaveConfig" class="save_config">$_('Save Configuration')</button>
+    <button id="cRestoreConfig" class="restore_config danger">$_('Restore Configuration')</button>
+    $if not(sd['ipas']):
+        <button id="bLogout" class="logout" title=$:{json.dumps(_('Logout'), ensure_ascii=False)}>$_('Logout')</button>
 </div>

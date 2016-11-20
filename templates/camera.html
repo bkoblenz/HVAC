@@ -1,13 +1,13 @@
-$def with (m_vals)
+$def with (substation, m_vals)
 
 $var title: $_('Irricloud Camera Settings')
-$var page: plugins
+$var page: camera
 <script>
    // Initialize behaviors
    jQuery(document).ready(function(){
 
       jQuery("#cTakePic").click(function() {
-         window.location= baseUrl + "/cap";
+         window.location= baseUrl + "/cap?substation=${substation}";
       });
 
       jQuery("#cSubmit").click(function() {
@@ -39,11 +39,20 @@ function decoder_control_2(arg) {
 <div id="plugin">
    <div class="title">$_('Camera Settings')
    </div>
+<!--
    <p>$_('A plugin for activating the camera with zone changes.')
    </p>
+-->
    <br>
    <form id="pluginForm" action="/cau" method="get">
+        <input type="hidden" name="substation" value="${substation}"/>
         <table class="optionList">
+            <tr>
+                <td style='text-transform: none;'>$_('Enable Camera'):</td>
+                <td>
+                    <input name='enable_camera' type='checkbox'${" checked" if m_vals['enable_camera'] == "on" else ""}>
+                </td>
+            </tr>
             <tr>
                 <td style='text-transform: none;'>$_('Take pictures on zone change'):</td>
                 <td>
@@ -57,13 +66,23 @@ function decoder_control_2(arg) {
                 </td>
                 <span class='tooltip'>$_('Time after zone switches before picture is taken.  2 second minimum; 2 minute maximum.')</span>
             </tr>
+            <tr>
+                <td style='text-transform: none;'>$_('Resolution'):</td>
+                <td>
+                <select name='resolution'>
+                    $for r in ['320x240', '640x480', '800x600', '1024x768', '1280x720']:
+                        <option value="${r}" ${" selected" if m_vals['resolution'] == r else ""}><b>${r}</b></option>
+                </select>
+                </td>
+                <span class='tooltip'>$_('Resolution for picture size.  Smaller resolutions load faster.')</span>
+            </tr>
         </table>
    </form>
 </div>
 <div id="controls">
-    <button id="cTakePic" class="submit">$_('Take Current Picture')</button>
-    <button id="cSubmit" class="submit"><b>$_('Submit')</b></button>
+    <button id="cSubmit" class="submit">$_('Submit')</button>
     <button id="cCancel" class="cancel danger">$_('Cancel')</button>
+    <button id="cTakePic" class="submit">$_('Take Current Picture')</button>
 </div>
 
 <div id ="PTZ1" align="center">
@@ -81,6 +100,6 @@ function decoder_control_2(arg) {
     <button type="button" onTouchStart="decoder_control_2(ptzMoveTopRight)" onTouchEnd="decoder_control_2('ptzStopRun')" onMouseDown="decoder_control_2(ptzMoveTopRight)" onMouseUp="decoder_control_2('ptzStopRun')">&#8594;&#8593;</button> 
     <br><br>
 -->
-    <img style="margin: 25px" id="cameraimg" src="static/images/camera.jpg" alt="No camera image">
+    <img style="margin: 25px" id="cameraimg" src="static/images/camera_temp.jpg" alt="No camera image">
     </center>
 </div>

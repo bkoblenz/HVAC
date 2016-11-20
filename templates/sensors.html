@@ -1,0 +1,186 @@
+$def with (substation, ld)
+
+$var title: $_('Irricloud Sensors')
+$var page: sensors
+$code:
+    nsens = len(ld)
+    
+    def two_digits(n):
+        return '%02d' % int(n)
+
+    def format_trigger_program(l):
+        if len(l) == 0:
+            return 'None'
+        result = ''
+        separator = ''
+        for tp in l:
+            result += separator + tp
+            separator = ', '
+        return result
+    
+<script>
+    // Initialize behaviors
+    jQuery(document).ready(function(){
+
+        jQuery("button#nDelAll, button.cDelete").click(function(){
+            try{
+                var sensid = jQuery(this).attr("data")
+            }
+            catch(err) {
+                var sensid = -1
+            }
+            jQuery("form#df input[name='sensid']").val(sensid);
+            jQuery("form#df").submit();
+        });
+
+        jQuery("button#nAdd, button.cModify").click(function(){
+            try{
+                var sensid = jQuery(this).attr("data")
+            }
+            catch(err) {
+                var sensid = -1
+            }
+            jQuery("form#mf input[name='sensid']").val(sensid);
+            jQuery("form#mf").submit();
+        });
+
+        jQuery("button#nMultiGraph").click(function(){
+            var senstype = jQuery("select.mgtype").val();
+            jQuery("form#mg input[name='senstype']").val(senstype);
+            jQuery("form#mg").submit();
+        });
+
+        jQuery("button.cLog").click(function(){
+            try{
+                var sensid = jQuery(this).attr("data")
+            }
+            catch(err) {
+                var sensid = -1
+            }
+            jQuery("form#lg input[name='sensid']").val(sensid);
+            jQuery("form#lg").submit();
+        });
+
+        jQuery("button.cDisable").click(function(){
+            var sensid = jQuery(this).attr("data");
+            var enable = jQuery(this).hasClass("off");
+            jQuery("form#es input[name='sensid']").val(sensid);
+            jQuery("form#es input[name='enabled']").val(enable ? 1 : 0);
+            jQuery("form#es").submit();
+        });        
+    });
+
+</script>
+<form name="df" id="df" action="${app_path('/ldds')}" method="get">
+    <input type="hidden" name="sensid">
+    <input type="hidden" name="substation" value="${substation}">
+</form>
+<form name="lg" id="lg" action="${app_path('/ldvl')}" method="get">
+    <input type="hidden" name="sensid">
+    <input type="hidden" name="substation" value="${substation}">
+</form>
+<form name="mf" id="mf" action="${app_path('/ldms')}" method="get">
+    <input type="hidden" name="sensid">
+    <input type="hidden" name="substation" value="${substation}">
+</form>
+<form name="mg" id="mg" action="${app_path('/ldmg')}" method="get">
+    <input type="hidden" name="senstype">
+    <input type="hidden" name="substation" value="${substation}">
+</form>
+<form name="es" id="es" action="${app_path('/ldes')}" method="get">
+    <input type="hidden" name="sensid">
+    <input type="hidden" name="enabled">
+    <input type="hidden" name="substation" value="${substation}">
+</form>
+<div id="controls">
+    <button id="nAdd" class="add" data="-1">$_('Add a New Sensor')</button>
+    <button id="nDelAll" class="deleteAll danger" data="-1">$_('Delete All')</button>
+    $ type_list = ['Dry Contact', 'Leak Detector', 'Moisture', 'Motion', 'Temperature']
+    $ sens_count = {}
+    $ multiple_sensor_types = []
+    $for x in type_list:
+        $ sens_count[x] = 0
+    $for sensid in range(0,nsens):
+        $ sens = ld[sensid]
+        $ sens_type = sens['type']
+        $if sens['enabled'] and sens_type != 'None':
+            $ sens_count[sens_type] += 1
+            $if sens_type not in multiple_sensor_types and sens_count[sens_type] > 1:
+                $ multiple_sensor_types.append(sens_type)
+    $if len(multiple_sensor_types) > 0:
+        <button id="nMultiGraph" class="nMultiGraph" data="-1">$_('Graph Overlay')</button>
+        <b>$_(' Graph Overlay Type'): </b><select class="mgtype" name="type">
+        $for t in multiple_sensor_types:
+            <option value="${t}" ${" selected" if multiple_sensor_types[0]==t else ""}><b>${t}</b></option>
+        </select>
+</div>
+
+<div id="programs">
+    $for sensid in range(0,nsens):
+        $ sens = ld[sensid]
+        $ en = sens['enabled']
+        <div id="p${sensid}" class="controlBlock program ${'disabled' if en == 0 else ''}">
+         <p>
+             <button class="cDisable toggle ${'off' if en == 0 else 'on'}" data="${sensid}">
+                 <span class='toggleleft'>$_('On')</span>
+                 <span class='togglesep'>&nbsp;</span>
+                 <span class='toggleright'>$_('Off')</span>
+             </button>
+             <b>Name: ${sens['name']}</b><b><span class="val"> Type: ${sens['type']}</span></b>
+         </p>
+         $if sens['remote_sensor'] == 0:
+             <p>$_('Sensor Board'): <span class="val">${"None" if 'vsb_bd' not in sens or sens['vsb_bd']==-1 else str(sens['vsb_bd']+1)}</span>
+         $else:
+             <p>$_('Sensor Board'): <span class="val">${sens['vsb_bd']}</span>
+         $_(' Sensor Position'): <span class="val">${"1" if 'vsb_pos' not in sens else str(sens['vsb_pos']+1)}</span>
+         </p>
+         <p>$_('Sample Rate'): <span class="val">${two_digits(sens['sample_rate']//60) + ":" + two_digits(sens['sample_rate']%60)} (mm:ss)</span></p>
+         <p>$_('Log Samples'): <span class="val">${"Yes" if sens['lgs'] else "No"}</span></p>
+         <p>$_('Log Events'): <span class="val">${"Yes" if sens['lge'] else "No"}</span></p>
+         <p>$_('Text/Email Events'): <span class="val">${"Yes" if sens['te'] else "No"}</span></p>
+         <p>$_('Normal Sensor Value Considered Event?'): <span class="val">${"Yes" if sens['normal_trigger'] else "No"}</span></p>
+         $if sens['type'] == 'Leak Detector':
+             <p>$_('Last Read Value'): <span class="val">${str(sens['last_read_value'])}</span></p>
+             <p>$_('Sensitivity'): <span class="val">${sens['sensitivity']} %</span></p>
+             <p>$_('Stabilization Time'): <span class="val">${two_digits(sens['stabilization']//60) + ":" + two_digits(sens['stabilization']%60)} (mm:ss)</span></p>
+             <p>$_('Low Program'): <span class="val">${format_trigger_program(sens['trigger_low_program'])}</span></p>
+             <p>$_('High Program'): <span class="val">${format_trigger_program(sens['trigger_high_program'])}</span></p>
+         $elif sens['type'] == 'Dry Contact':
+             <p>$_('Last Read Value'): <span class="val">${str(sens['last_read_value'])}</span></p>
+             <p>$_('Open Program'): <span class="val">${format_trigger_program(sens['trigger_low_program'])}</span></p>
+             <p>$_('Closed Program'): <span class="val">${format_trigger_program(sens['trigger_high_program'])}</span></p>
+         $elif sens['type'] == 'Motion':
+             <p>$_('Last Read Value'): <span class="val">${str(sens['last_read_value'])}</span></p>
+             <p>$_('Program'): <span class="val">${format_trigger_program(sens['trigger_high_program'])}</span></p>
+         $elif sens['type'] == 'Temperature':
+             $ lrv = sens['last_read_value']
+             $ lt = sens['trigger_low_threshold']
+             $ ht = sens['trigger_high_threshold']
+             $if gv.sd['tu'] == 'F':
+                 $if lrv is not None:
+                     $ lrv = lrv*1.8 + 32
+                 $ lt = lt*1.8 + 32
+                 $ ht = ht*1.8 + 32
+             $if lrv is not None:
+                 $ lrv = "{0:.1f}".format(lrv)
+             $ lt = "{0:.1f}".format(lt)
+             $ ht = "{0:.1f}".format(ht)
+             <p>$_('Last Read Value'): <span class="val">${str(lrv)}</span></p>
+             <p>$_('Low Threshold'): <span class="val">${lt}</span>
+                $_('Program'): <span class="val">${format_trigger_program(sens['trigger_low_program'])}</span></p>
+             <p>$_('High Threshold'): <span class="val">${ht}</span>
+                $_('Program'): <span class="val">${format_trigger_program(sens['trigger_high_program'])}</span></p>
+         $elif sens['type'] == 'Moisture':
+             <p>$_('Last Read Value'): <span class="val">${str(sens['last_read_value'])}</span></p>
+             <p>$_('Low Threshold'): <span class="val">${sens['trigger_low_threshold']}</span>
+                $_('Program'): <span class="val">${format_trigger_program(sens['trigger_low_program'])}</span></p>
+             <p>$_('High Threshold'): <span class="val">${sens['trigger_high_threshold']}</span>
+                $_('Program'): <span class="val">${format_trigger_program(sens['trigger_high_program'])}</span></p>
+
+            <p>
+                <button class="cLog" data="${sensid}">$_('View Logs')</button>
+                <button class="cModify" data="${sensid}">$_('Edit')</button>
+                <button class="cDelete danger" data="${sensid}">$_('Delete')</button>
+            </p>
+        </div>
+</div>

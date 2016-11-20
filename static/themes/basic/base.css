@@ -22,21 +22,28 @@ div, p {
 /******** Overall Layout Styles **********/
 
 div.header {
-	background-image: url('logo.png');
+	background-image: url('logo-for-web55.jpg');
 	background-repeat: no-repeat;
-	background-position: 64px 8px;
+	background-position: 32px 14px;
 	background-color: #32A620;
 	height:80px;
 }
 
 div.header div.title {
 	font-family: 'Quicksand', sans-serif;
-	font-size: 24pt;
+	font-size: 18pt;
 	text-transform:uppercase;
 	text-align:right;
 	color:white;
 	padding-top:35px;
 	padding-right:16px;
+}
+
+select.substation {
+	font-family: 'Quicksand', sans-serif;
+	background-color: #32A620;
+	font-size: 18pt;
+        color:white;
 }
 
 div.header div.titlenote {
@@ -198,11 +205,11 @@ div#status {
 	margin-bottom:16px;
 }
 #nav button {
-	padding:9px 18px;
-	margin-right: 8px;
+	padding:7px 16px;
+	margin-right: 4px;
 	font-family: Quicksand, sans-serif;
 	text-transform: uppercase;
-	font-size: 16pt;
+	font-size: 13pt;
 	font-weight: 400;
 	color:white;
 	background-color:#2E3959;
@@ -270,10 +277,12 @@ button.toggle.on {
 	background-color: #397F19;
 	background-image: url('on.png');
 }
+/*
 button.toggle.on:hover {
 	color: #F7F1CD;
 	background-image: url('off.png');
 }
+*/
 button.toggle.off {
 	background-color: #7D1921;
 	background-image: url('off.png');
@@ -282,10 +291,12 @@ button.toggle.off.choice {
 	background-color: #397F19;
 	background-image: url('off.png');
 }
+/*
 button.toggle.off:hover {
 	color: #F7F1CD;
 	background-image: url('on.png');
 }
+*/
 button.toggle span.togglesep {
 	display: inline-block;
 	width: 50px;
