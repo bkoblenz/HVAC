@@ -134,17 +134,10 @@ $code:
             </div>
 
             <div class="panel">
-<!--
-                        <button id="bPlugins" class="plugins${' here' if content.page=='plugins' else ''}" title=$:{json.dumps(_('Access Plugins'), ensure_ascii=False)}>$_('Plugins')</button>
-                        $if not(gv.sd['ipas']):
-                            <button id="bLogout" class="logout" title=$:{json.dumps(_('Logout'), ensure_ascii=False)}>$_('Logout')</button>
--->
                 $if content.page != 'login':
                     <div id="nav">
                         <button id="bLog" class="log${' here' if content.page=='log' else ''}" title=$:{json.dumps(_('View Log'), ensure_ascii=False)}>$_('Logs')</button>
                         <button id="bOptions" class="options${' here' if content.page=='options' else ''}" title=$:{json.dumps(_('Options'), ensure_ascii=False)}>$_('Options')</button>
-                        <button id="bSensors" class="sensors${' here' if content.page=='sensors' else ''}" title=$:{json.dumps(_('Configure Sensors'), ensure_ascii=False)}>$_('Sensors')</button>
-                        <button id="bUpdates" class="updates${' here' if content.page=='updates' else ''}" title=$:{json.dumps(_('Software Updates'), ensure_ascii=False)}>$_('Updates')</button>
                     </div>
 
                 $:{content}
