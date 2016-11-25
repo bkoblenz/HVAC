@@ -520,14 +520,14 @@ def timing_loop():
                 set_output()
                 if boiler_md == 'heating' and \
                         gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
-                    log_event('zone call off; disable boiler')
+                    log_event('zone call off; disable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
                     set_boiler_mode('none')
                 if heatpump_md == 'heating' and \
                         gv.sd['mode'] in ['Boiler and Heatpump', 'Heatpump then Boiler', 'Heatpump Only']:
-                    log_event('zone call off; disable heatpump')
+                    log_event('zone call off; disable heatpump; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
                     set_heatpump_mode('none')
                 if heatpump_md == 'cooling' and gv.sd['mode'] == 'Heatpump Cooling':
-                    log_event('zone call off; disable heatpump')
+                    log_event('zone call off; disable heatpump; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
                     set_heatpump_mode('none')
         elif zc == 1: # still on?
             if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
@@ -542,11 +542,10 @@ def timing_loop():
 #                        log_event('disable heatpump; supply: ' + str(ave_supply_temp))
                         set_heatpump_mode('none')
             if gv.sd['mode'] == 'Heatpump then Boiler':
-#                if ave_supply_temp < heatpump_setpoint_h-7 or ave_return_temp < 33:
-                if ave_supply_temp < heatpump_setpoint_h-12 or ave_return_temp < 33:
+                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 33:
                     if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
                              gv.now-last_heatpump_on > 3*60:
-#                        log_event('reenable boiler; supply: ' + str(ave_supply_temp) + ' return: ' + str(ave_return_temp))
+                        log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
                         # Use only boiler for a while
                         remove_action({'what':'set_valve_change'})
                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
