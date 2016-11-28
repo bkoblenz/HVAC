@@ -138,6 +138,7 @@ $code:
                     <div id="nav">
                         <button id="bLog" class="log${' here' if content.page=='log' else ''}" title=$:{json.dumps(_('View Log'), ensure_ascii=False)}>$_('Logs')</button>
                         <button id="bOptions" class="options${' here' if content.page=='options' else ''}" title=$:{json.dumps(_('Options'), ensure_ascii=False)}>$_('Options')</button>
+                        <button id="bSensors" class="sensors${' here' if content.page=='sensors' else ''}" title=$:{json.dumps(_('Configure Sensors'), ensure_ascii=False)}>$_('Sensors')</button>
                     </div>
 
                 $:{content}
