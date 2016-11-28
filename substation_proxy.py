@@ -28,7 +28,6 @@ from fcntl import ioctl
 import subprocess
 from i2c import ZONE_STATE, SCRATCH
 
-#todo fix email config under options
 class WebPage(object):
     def __init__(self):
         self.logger = logging.getLogger('substation_proxy')

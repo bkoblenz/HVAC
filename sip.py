@@ -135,6 +135,8 @@ dry4 = 7
 last_boiler_off = 0
 last_boiler_on = 0
 boiler_mode = 'none'
+boiler_through_buffer_tank = True # If return from boiler should flow through buffer tank
+
 def get_boiler_mode():
     return boiler_mode
 
@@ -150,7 +152,7 @@ def set_boiler_mode(md, remove=True):
     else:
         gv.srvals[boiler_call] = 0
         set_output()
-        if gv.sd['mode'] not in ['Boiler Only']: # put valve back to all buffer tank
+        if gv.sd['mode'] not in ['Boiler Only'] and not boiler_through_buffer_tank: # put valve back to all buffer tank
             remove_action({'what':'set_valve_change'})
             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
         last_boiler_off = gv.now
@@ -316,7 +318,8 @@ def timing_loop():
     zc = 0
     supply_temp_readings = []
     return_temp_readings = []
-    last_mode = gv.sd['mode']
+#    last_mode = gv.sd['mode']
+    last_mode = 'Invalid Mode' # force intialization
     last_temp_log = 0
     failed_temp_read = 0
     last_dewpoint_adjust = 0
@@ -435,7 +438,13 @@ def timing_loop():
             gv.srvals[circ_pump] = 0
             set_output()
             last_zc = 0 # mark as was off
-            last_mode = gv.sd['mode']            
+            last_mode = gv.sd['mode']
+            remove_action({'what':'set_valve_change'})
+            if gv.sd['mode'] in ['Heatpump Cooling'] or \
+                   (gv.sd['mode'] in ['Boiler Only'] and not boiler_through_buffer_tank): # use only return water
+                insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
+            else:
+                insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
 
         try:
             temps = read_temps()
@@ -503,32 +512,36 @@ def timing_loop():
                 gv.srvals[circ_pump] = 1
                 set_output()
                 # for cooling or boiler operation start with only return water.  For heating, only buffer tank water
-                remove_action({'what':'set_valve_change'})
-                if gv.sd['mode'] in ['Heatpump Cooling', 'Boiler Only']:
+                if gv.sd['mode'] in ['Heatpump Cooling']:
+                    remove_action({'what':'set_valve_change'})
                     insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
-                    if gv.sd['mode'] == 'Heatpump Cooling':
-                        one_way_cooling_adjustments = 0
-                else:
-                    insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
+                    one_way_cooling_adjustments = 0
+                elif not boiler_through_buffer_tank:
+                    remove_action({'what':'set_valve_change'})
+                    if gv.sd['mode'] in ['Boiler Only']:
+                        insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
+                    else:
+                        insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
  
                 if gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
                     log_event('zone call on; enable boiler')
                     set_boiler_mode('heating')
             else: # was on, now off
-                log_event('zone call off; disable circ pump')
+                msg_start = 'zone call off; '
                 gv.srvals[circ_pump] = 0
                 set_output()
                 if boiler_md == 'heating' and \
                         gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
-                    log_event('zone call off; disable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
+                    msg_start += 'disable boiler; '
                     set_boiler_mode('none')
                 if heatpump_md == 'heating' and \
                         gv.sd['mode'] in ['Boiler and Heatpump', 'Heatpump then Boiler', 'Heatpump Only']:
-                    log_event('zone call off; disable heatpump; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
+                    msg_start += 'disable heatpump; '
                     set_heatpump_mode('none')
                 if heatpump_md == 'cooling' and gv.sd['mode'] == 'Heatpump Cooling':
-                    log_event('zone call off; disable heatpump; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
+                    msg_start += 'disable heatpump; '
                     set_heatpump_mode('none')
+                log_event(msg_start + 'supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
         elif zc == 1: # still on?
             if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
                 continue
@@ -547,8 +560,9 @@ def timing_loop():
                              gv.now-last_heatpump_on > 3*60:
                         log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
                         # Use only boiler for a while
-                        remove_action({'what':'set_valve_change'})
-                        insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
+                        if not boiler_through_buffer_tank:
+                            remove_action({'what':'set_valve_change'})
+                            insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                         set_heatpump_mode('none')
                         set_boiler_mode('heating')
                         insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
