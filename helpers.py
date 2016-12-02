@@ -387,7 +387,7 @@ def update_upnp(cur_ip, logger, deletes=[],adds=[]):
         router_ref = ''
         desc = 'desc: '
 
-        args = ['/usr/bin/timeout', '3', '/usr/bin/upnpc', '-l']
+        args = ['/usr/bin/timeout', '5', '/usr/bin/upnpc', '-l']
         upnp_out = subprocess.check_output(args)
         l = upnp_out.split('\n')
         for e in l:
