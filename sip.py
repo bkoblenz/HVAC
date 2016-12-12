@@ -135,7 +135,10 @@ dry4 = 7
 last_boiler_off = 0
 last_boiler_on = 0
 boiler_mode = 'none'
-boiler_through_buffer_tank = True # If return from boiler should flow through buffer tank
+# If return from boiler should flow through buffer tank set following to true.  When large delta T, this seems worse
+# because we do not get heatpump heating in background.  On the other hand, with low delta T, then this gives heatpump
+# time to rest.
+boiler_through_buffer_tank = False # If return from boiler should flow through buffer tank.
 
 def get_boiler_mode():
     return boiler_mode
