@@ -276,19 +276,18 @@ def process_actions():
 #                        log_event('stop valve')
                         gv.srvals[close_ret] = 0
                         gv.srvals[open_ret] = 0
-                        set_output()
                     elif amount < 0: # more return, less buffer tank
                         # assume 100 seconds to fully move valve, so each amount request is actually a second
                         insert_action(gv.now-int(amount), {'what':'set_valve_change', 'valve_change_percent':0})
                         gv.srvals[close_ret] = 0
                         gv.srvals[open_ret] = 1
-                        set_output()
                         log_event('more return water: ' + str(-int(amount)) + '%')
                     else: # less return, more buffer tank
                         insert_action(gv.now+int(amount), {'what':'set_valve_change', 'valve_change_percent':0})
                         gv.srvals[close_ret] = 1
                         gv.srvals[open_ret] = 0
                         log_event('more buffer tank water: ' + str(int(amount)) + '%')
+                    set_output()
             except Exception as ex:
                 log_event('Unexpected action: ' + action['what'] + ' ex: ' + str(ex))
             del actions[i]

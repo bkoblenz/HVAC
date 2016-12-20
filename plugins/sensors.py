@@ -314,7 +314,8 @@ class SensorsChecker(Thread):
                         s['last_good_report'] = {}
                         s['last_high_report'] = {}
 
-                    jsave(gv.plugin_data['ld'], 'sensors') # save last good,low,high reports
+                    if len(gv.plugin_data['ld']) > 0:
+                        jsave(gv.plugin_data['ld'], 'sensors') # save last good,low,high reports
                     reading = None
                     if s['type'] == 'Leak Detector':
                         if not s['remote_sensor'] and s['vsb_bd'] > -1:
