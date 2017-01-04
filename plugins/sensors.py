@@ -106,6 +106,7 @@ def load_sensors():
     """Load the flow meter data from file."""
 
     try:
+        gv.logger.info('load_sensors start')
         with open('./data/sensors.json', 'r') as f:
             gv.plugin_data['ld'] = json.load(f)
         # add in any fields missing in data file
@@ -116,6 +117,7 @@ def load_sensors():
                     s[key] = proto_sens[key]
                     change = True
         if change:
+            gv.logger.info('load_sensors change: ' + str(gv.plugin_data))
             with open('./data/sensors.json', 'w') as f:
                 json.dump(gv.plugin_data['ld'], f)
 
@@ -123,10 +125,18 @@ def load_sensors():
         gv.plugin_data['ld'] = []
         with open('./data/sensors.json', 'w') as f:
             json.dump(gv.plugin_data['ld'], f)
+    except:
+        shutil.copy2('./data/sensors.json.save', './data/sensors.json')
+        raise
+    gv.logger.info('load_sensors finish: ' + str(gv.plugin_data))
 
 path = os.path.join('.', 'data', 'sensors')
 mkdir_p(path)
-load_sensors()
+try:
+    load_sensors()
+except Exception as ex:
+    gv.logger.info('load_sensors exception: ' + str(ex))
+    load_sensors() # try again
 
 last_change_time = [0]
 last_srvals = [0]
