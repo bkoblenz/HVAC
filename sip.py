@@ -557,7 +557,7 @@ def timing_loop():
 #                        log_event('disable heatpump; supply: ' + str(ave_supply_temp))
                         set_heatpump_mode('none')
             if gv.sd['mode'] == 'Heatpump then Boiler':
-                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 33:
+                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
                     if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
                              gv.now-last_heatpump_on > 3*60:
                         log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
