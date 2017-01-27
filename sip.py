@@ -162,7 +162,7 @@ def set_boiler_mode(md, remove=True):
     boiler_mode = md
     log_event('set_boiler_mode: ' + md)
 
-heatpump_setpoint_h = (118-32)/1.8
+heatpump_setpoint_h = (122-32)/1.8
 last_heatpump_off = 0
 last_heatpump_on = 0
 heatpump_mode = 'none'
@@ -510,6 +510,7 @@ def timing_loop():
                 supply_temp_readings = []
                 return_temp_readings = []
                 last_ave_supply_temp = None
+                low_supply_count = 0
                 log_event('zone call on; enable circ pump')
                 gv.srvals[circ_pump] = 1
                 set_output()
@@ -548,17 +549,22 @@ def timing_loop():
             if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
                 continue
             if gv.sd['mode'] in ['Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
-                if ave_supply_temp < heatpump_setpoint_h-5:
+                if ave_supply_temp < heatpump_setpoint_h-8:
                     if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
 #                        log_event('reenable heatpump; supply: ' + str(ave_supply_temp))
                         set_heatpump_mode('heating')
-                if ave_supply_temp > heatpump_setpoint_h-2:
+                if ave_supply_temp > heatpump_setpoint_h-4:
                     if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
 #                        log_event('disable heatpump; supply: ' + str(ave_supply_temp))
                         set_heatpump_mode('none')
             if gv.sd['mode'] == 'Heatpump then Boiler':
-                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
-                    if boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
+#                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
+                if ave_supply_temp < 33:
+                    if low_supply_count <= 600: # about 10 mins
+                        if low_supply_count % 300 == 0:
+                            log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
+                        low_supply_count += 1
+                    elif boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
                              gv.now-last_heatpump_on > 3*60:
                         log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
                         # Use only boiler for a while
@@ -568,6 +574,8 @@ def timing_loop():
                         set_heatpump_mode('none')
                         set_boiler_mode('heating')
                         insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
+                else:
+                    low_supply_count = 0
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
                  dewpoint_margin = 1.5
                  target = max(dew+dewpoint_margin+1, 10.)
