@@ -573,7 +573,9 @@ def timing_loop():
                             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                         set_heatpump_mode('none')
                         set_boiler_mode('heating')
-                        insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
+#                        insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
+                        # try an hour to warm things up and allow defrost mode on hp to finish and rewarm tank
+                        insert_action(gv.now+59*60, {'what':'set_boiler_mode', 'mode':'none'})
                 else:
                     low_supply_count = 0
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
