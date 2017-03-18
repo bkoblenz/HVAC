@@ -68,6 +68,7 @@ from helpers import password_salt, password_hash, load_programs, station_names, 
 sd = {
     u"en": 1,
     u"mode": 'None',
+    u"boiler_supply_temp": 90.,
     u"seq": 1,
     u"ir": [],
     u"iw": [],
@@ -218,7 +219,8 @@ options = []
 options += \
     [_("Time zone"), "list", "tza", _("Example: US/Pacific."), _("System")], \
     [_("24-hour clock"), "boolean", "tf", _("Display times in 24 hour format (as opposed to AM/PM style.)"), _("System")], \
-    [_("Mode"), "list", "mode", _("Heating or cooling mode."), _("System")],
+    [_("Mode"), "list", "mode", _("Heating or cooling mode."), _("System")], \
+    [_("Boiler Supply Temp"), "float", "boiler_supply_temp", _("Water supply temperature below which boiler will turn on."), _("System")],
 
 if sd['enable_upnp']:
     options += [_("Remote support"), "int", "remote_support_port", _("Enable remote ssh access for support."), _("System")],

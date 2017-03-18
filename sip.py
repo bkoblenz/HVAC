@@ -361,6 +361,7 @@ def timing_loop():
         gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
         # perform once per minute processing
         if gv.now // 60 != last_min:  # only check programs once a minute
+            boiler_supply_crossover = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
             update_radio_present()
             max_bd = -1
@@ -559,7 +560,7 @@ def timing_loop():
                         set_heatpump_mode('none')
             if gv.sd['mode'] == 'Heatpump then Boiler':
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
-                if ave_supply_temp < 33:
+                if ave_supply_temp < boiler_supply_crossover:
                     if low_supply_count <= 600: # about 10 mins
                         if low_supply_count % 300 == 0:
                             log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))

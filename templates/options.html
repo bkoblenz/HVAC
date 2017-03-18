@@ -134,6 +134,8 @@ $code:
             output += "<div class='option' title='" + tooltip + "'><span class='label'>" + label + ":</span>\n"
             if datatype == "boolean":
                 output += "<input name='o" + name + "' type='checkbox' " + ("checked" if value>0 else "") + ">\n"
+            elif datatype == "float":
+                output += "<input name='o" + name + "' type='text' size='31' maxlength='31' value=\"" + str(value) + "\">\n"
             elif datatype == "string":
                 output += "<input name='o" + name + "' type='text' size='31' maxlength='31' value=\"" + value + "\">\n"
             elif datatype == "password":

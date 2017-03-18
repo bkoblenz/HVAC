@@ -514,6 +514,7 @@ class change_options(ProtectedPage):
             else:
                 gv.sd[f] = 0
 
+        gv.sd['boiler_supply_temp'] = float(qdict['oboiler_supply_temp'])
         try:
             new_base = float(qdict['oetbase'])
             new_weather = gv.sd['wl_et_weather'] * float(gv.sd['etbase'])/new_base
@@ -1470,8 +1471,10 @@ class toggle_temp(ProtectedPage):
         qdict = web.input()
         if qdict['tunit'] == "C":
             gv.sd['tu'] = "F"
+            gv.sd['boiler_supply_temp'] = gv.sd['boiler_supply_temp']*1.8 + 32
         else:
             gv.sd['tu'] = "C"
+            gv.sd['boiler_supply_temp'] = (gv.sd['boiler_supply_temp']-32)/1.8
         jsave(gv.sd, 'sd')
         raise web.seeother('/')
 
