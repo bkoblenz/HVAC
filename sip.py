@@ -105,22 +105,25 @@ def dewpoint_loop():
         try:
             time.sleep(60)
             (dew_temp, dew_hum) = get_temp_hum()
-#            print 'dew_temp: ', dew_temp, ' dew_hum: ', dew_hum
+            print 'dew_temp: ', dew_temp, ' dew_hum: ', dew_hum
             failed_dewpoint_read = 0
             dew = dewpoint(dew_temp, dew_hum)
-#            print 'dew: ', dew
+            print 'dew: ', dew
         except Exception as ex:
-            if failed_dewpoint_read > 5: # a few failures before panicing
-                dew = 25
-            failed_dewpoint_read += 1
-            if failed_dewpoint_read < 10:
-                if failed_dewpoint_read % 10 == 2: # first exception should get cleared by reconnect and is normal
-                    log_event('cant read dewpoint.  Exception: ' + str(ex) + ' Failcount: ' + str(failed_dewpoint_read))
-            elif failed_dewpoint_read == 10:
-                log_event('DEWPOINT SENSOR FAILURE')
-                email('Heating', 'DEWPOINT SENSOR FAILURE')
-            elif failed_dewpoint_read % 10 == 0:
-                log_event('Ongoing dewpoint failure.  Failcount: ' + str(failed_dewpoint_read))
+            try:
+                if failed_dewpoint_read > 5: # a few failures before panicing
+                    dew = 16
+                failed_dewpoint_read += 1
+                if failed_dewpoint_read < 10:
+                    if failed_dewpoint_read % 10 == 2: # first exception should get cleared by reconnect and is normal
+                        log_event('cant read dewpoint.  Exception: ' + str(ex) + ' Failcount: ' + str(failed_dewpoint_read))
+                elif failed_dewpoint_read == 10:
+                    log_event('DEWPOINT SENSOR FAILURE')
+                    gv.plugin_data['te']['tesender'].try_mail('Heating', 'DEWPOINT SENSOR FAILURE')
+                elif failed_dewpoint_read % 10 == 0:
+                    log_event('Ongoing dewpoint failure.  Failcount: ' + str(failed_dewpoint_read))
+            except Exception as ex1:
+                log_event('dewpoint sensor email send failed Unexpected exception: ' + str(ex1))
 
 # vsb outputs
 boiler_call = 0
@@ -250,7 +253,10 @@ def process_actions():
     global logged_internal_error
 
     if len(actions) > 10 and not logged_internal_error:
-        email('Internal error', 'Action list likely too long len: ' + str(len(actions)))
+        try:
+            gv.plugin_data['te']['tesender'].try_mail('Internal error', 'Action list likely too long len: ' + str(len(actions)))
+        except:
+            log_event('action list email send failed')
         log_event('Action list likely too long len: ' + str(len(actions)))
         for a in actions:
             log_event('action time: ' + str(a['time']) + ' what: ' + a['action']['what'])
@@ -409,7 +415,7 @@ def timing_loop():
                             body += ':' + str(gv.sd['external_htp'])
                         gv.plugin_data['te']['tesender'].try_mail(subject, body)
                 except:
-                    pass
+                    log_event('ip change email send failed')
 
             if cur_ip != gv.last_ip:
                 gv.logger.info('IP changed from: ' + gv.last_ip + ' to: ' + cur_ip)
@@ -472,7 +478,10 @@ def timing_loop():
                         log_event('cant read temperatures.  Failcount: ' + str(failed_temp_read))
                 elif failed_temp_read == 300:
                     log_event('TEMPERATURE SENSOR FAILURE')
-                    email('Heating', 'TEMPERATURE SENSOR FAILURE')
+                    try:
+                        gv.plugin_data['te']['tesender'].try_mail('Heating', 'TEMPERATURE SENSOR FAILURE')
+                    except:
+                        log_event('temp sensor failure email send failed')
                 elif failed_temp_read % 300 == 0:
                     log_event('Ongoing temp failure.  Failcount: ' + str(failed_temp_read))
 
