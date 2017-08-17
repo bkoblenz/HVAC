@@ -330,6 +330,7 @@ def timing_loop():
     last_mode = 'Invalid Mode' # force intialization
     last_temp_log = 0
     failed_temp_read = 0
+    failed_cold_supply = 0
     last_dewpoint_adjust = 0
 
     # Log the image and all the vsb board fw
@@ -592,6 +593,18 @@ def timing_loop():
                  dewpoint_margin = 1.5
                  target = max(dew+dewpoint_margin+1, 10.)
                  adjust = 0
+                 if ave_supply_temp >= 20:
+                    failed_cold_supply += 1
+                    if failed_cold_supply == 300:
+                        log_event('COLD SUPPLY WATER FAILURE')
+                        try:
+                            gv.plugin_data['te']['tesender'].try_mail('Cooling', 'COLD SUPPLY WATER FAILURE')
+                        except:
+                            log_event('cold supply water failure email send failed')
+                    elif failed_cold_supply % 300 == 0:
+                        log_event('Ongoing cold supply water failure.  Failcount: ' + str(failed_cold_supply))
+                 else:
+                    failed_cold_supply = 0
                  if ave_supply_temp <= dew+dewpoint_margin and one_way_cooling_adjustments > min_cooling_adjustments:
                      remove_action({'what':'set_valve_change'})
                      insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
