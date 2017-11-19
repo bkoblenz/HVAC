@@ -571,8 +571,9 @@ def timing_loop():
             if gv.sd['mode'] == 'Heatpump then Boiler':
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
                 if ave_supply_temp < boiler_supply_crossover:
-                    if low_supply_count <= 600: # about 10 mins
-                        if low_supply_count % 300 == 0:
+                    if low_supply_count <= 900: # about 15 mins.
+                        # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
+                        if low_supply_count % 150 == 0:
                             log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
                         low_supply_count += 1
                     elif boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
