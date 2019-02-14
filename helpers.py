@@ -441,7 +441,9 @@ def check_and_update_upnp(cur_ip=''):
 
     if cur_ip == '':
         cur_ip = get_ip()
-    if cur_ip != 'No IP Settings' and gv.sd['enable_upnp']:
+    if cur_ip == 'No IP Settings':
+        gv.logger.info('check_and_update_upnp ' + cur_ip)
+    elif gv.sd['enable_upnp']:
         adds = []
         if gv.sd['external_htp'] != 0:
             if gv.sd['htp'] == 0:

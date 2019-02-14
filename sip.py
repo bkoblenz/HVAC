@@ -363,6 +363,7 @@ def timing_loop():
 
     set_output()
     while True:  # infinite loop
+      try:
         time.sleep(1)
         gv.nowt = time.localtime()   # Current time as time struct.  Updated once per second.
         gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
@@ -431,6 +432,8 @@ def timing_loop():
                 check_and_update_upnp(cur_ip)
                 last_upnp_refresh = gv.now
 
+        if gv.now % 60 == 0:
+            gv.logger.info('timing_loop 0')
         process_actions()
         last_zc = zc
         zc = read_sensor_value('zone_call')
@@ -571,7 +574,7 @@ def timing_loop():
             if gv.sd['mode'] == 'Heatpump then Boiler':
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
                 if ave_supply_temp < boiler_supply_crossover:
-                    if low_supply_count <= 900: # about 15 mins.
+                    if low_supply_count <= 750: # about 12.5 mins.
                         # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
                         if low_supply_count % 150 == 0:
                             log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
@@ -587,7 +590,9 @@ def timing_loop():
                         set_boiler_mode('heating')
 #                        insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
                         # try an hour to warm things up and allow defrost mode on hp to finish and rewarm tank
-                        insert_action(gv.now+59*60, {'what':'set_boiler_mode', 'mode':'none'})
+                        last_on_min_gap = (gv.now - last_boiler_on)//60
+                        extra_min = 0 if last_on_min_gap >= 4*60 else 15 if last_on_min_gap >= 3*60 else 30
+                        insert_action(gv.now+(extra_min+59)*60, {'what':'set_boiler_mode', 'mode':'none'})
                 else:
                     low_supply_count = 0
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
@@ -668,6 +673,8 @@ def timing_loop():
                         (adjust < 0 and one_way_cooling_adjustments > min_cooling_adjustments):
                      one_way_cooling_adjustments += adjust
 
+      except:
+          gv.logger.exception('BUG')
         #### End of timing loop ####
 
 
