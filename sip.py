@@ -588,13 +588,12 @@ def timing_loop():
                         if not boiler_through_buffer_tank:
                             remove_action({'what':'set_valve_change'})
                             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
-                        extra_min = 0 if last_on_min_gap >= 4*60 else 15 if last_on_min_gap >= 3*60 else 30
-                        set_heatpump_mode('none')
-                        set_boiler_mode('heating')
-#                        insert_action(gv.now+45*60, {'what':'set_boiler_mode', 'mode':'none'})
                         # try an hour to warm things up and allow defrost mode on hp to finish and rewarm tank
                         last_on_min_gap = (gv.now - last_boiler_on)//60
 #                        gv.logger.info('last_on_min_gap: ' + str(last_on_min_gap) + ' now: ' + str(gv.now) + ' on: ' + str(last_boiler_on))
+                        extra_min = 0 if last_on_min_gap >= 4*60 else 15 if last_on_min_gap >= 3*60 else 30
+                        set_heatpump_mode('none')
+                        set_boiler_mode('heating')
                         insert_action(gv.now+(extra_min+59)*60, {'what':'set_boiler_mode', 'mode':'none'})
                 else:
                     low_supply_count = 0
