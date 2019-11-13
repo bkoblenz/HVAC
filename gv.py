@@ -135,6 +135,7 @@ sd = {
     u"etforecast":1,
     u"etapi":u"",
     u"light_ip":1,
+    u"USR_ip": "192.168.86.115",
 }
 
 for i in range(5):

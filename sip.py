@@ -36,7 +36,6 @@ def dewpoint(t,rh):
     g = gamma(t,rh)
     return c*g / (b-g)
 
-TCP_ADDR = '192.168.1.107'
 TCP_PORT = 8899
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -48,7 +47,7 @@ def connect_socket():
     s.settimeout(30)
     for i in range(60):
         try:
-            s.connect((TCP_ADDR, TCP_PORT))
+            s.connect((gv.sd['USR_ip'], TCP_PORT))
             break
         except:
 #            log_event('Retry connect...')

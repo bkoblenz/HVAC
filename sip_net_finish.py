@@ -323,6 +323,10 @@ class NetConfig(web.application):
             form_args += (web.form.Textbox('UPnP Refresh Rate', value=gv.sd['upnp_refresh_rate']), )
             form_args += (web.form.Textbox('External Station Port', value="0"), )
 
+            messages.append('Enter a valid IP address in "USR Dewpoint IP" to get dewpoint data to ensure cooling functions properly.')
+            messages.append('')
+            form_args += (web.form.Textbox('USR Dewpoint IP', value=gv.sd['USR_ip']), )
+
         if not gv.sd['subnet_only_substations']:
             messages.append('"Remote Substation Access Port" will be used by substations on a different subnet than the master station to reach the master station.  The value used for the master station and the relevant substations must all be the same.  A value between 10000 and 20000 typically works well.')
             messages.append('')
@@ -370,7 +374,8 @@ class NetConfig(web.application):
         error_msg = ''
         outdata = []
 
-        for f in ['Static IP', 'Netmask', 'Gateway', 'DNS Nameservers', 'SSID', 'Password', 'Hidden SSID', 'UPnP Refresh Rate', 'Station Name', 'Station Port', 'External Station Port', 'Remote Substation Access Port']:
+        for f in ['Static IP', 'Netmask', 'Gateway', 'DNS Nameservers', 'SSID', 'Password', 'Hidden SSID', 'UPnP Refresh Rate',
+                  'Station Name', 'Station Port', 'External Station Port', 'Remote Substation Access Port', 'USR Dewpoint IP']:
             if f in form:
                 form[f] = form[f].strip()
 
@@ -564,6 +569,8 @@ class NetConfig(web.application):
                     gv.sd['master_port'] = 0
                 gv.sd['external_htp'] = int(form['External Station Port']) if 'External Station Port' in form else 0
                 gv.sd['external_proxy_port'] = int(form['Remote Substation Access Port']) if 'Remote Substation Access Port' in form else 0
+                if 'USR Dewpoint IP' in form:
+                    gv.sd['USR_ip'] = form['USR Dewpoint IP']
                 jsave(gv.sd, 'sd')
                 self.logger.info('success....copying back interfaces and wpa')
                 try:
