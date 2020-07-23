@@ -172,7 +172,7 @@ if __name__ == "__main__":
     last_net_reset = timegm(time.localtime())
 
     cmds = [['rm', 'data/substation_proxy_pause'],
-            ['/etc/init.d/bind9', 'stop'], # only run with master radio
+            ['/etc/init.d/bind9', 'stop'], # only run with main radio
             ['update-rc.d', 'sip', 'remove'],
             ['update-rc.d', 'sip_net_finish', 'remove'],
             ['update-rc.d', 'sip_monitor', 'defaults'],

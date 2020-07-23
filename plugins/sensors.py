@@ -621,7 +621,7 @@ class view_sensors(ProtectedPage):
                 subid, data = load_and_save_remote(qdict, [], 'susldr', 'data', {'sensors':1, 'ldi':-1})
                 return template_render.sensors(subid, data['sensors'])
             except Exception as ex:
-                gv.logger.info('view_sensors: No response from slave: ' +
+                gv.logger.info('view_sensors: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -662,7 +662,7 @@ class modify_sensor(ProtectedPage):
                     temporary_sensor = sensdata.copy()
                 return template_render.modify_sensor(subid, gv.sd['tu'], data['programs'], data['sensboards'], data['remotesensboards'], sensnames, sensid, sensdata)
             except Exception as ex:
-                gv.logger.info('modify_sensor: No response from slave: ' +
+                gv.logger.info('modify_sensor: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -818,7 +818,7 @@ class change_sensor(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ldcs', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('change_sensor: No response from slave: ' +
+                gv.logger.info('change_sensor: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -891,7 +891,7 @@ class delete_sensor(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ldds', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('delete_sensor: No response from slave: ' +
+                gv.logger.info('delete_sensor: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -914,7 +914,7 @@ class enable_sensor(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ldes', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('enable_sensor: No response from slave: ' +
+                gv.logger.info('enable_sensor: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -946,7 +946,7 @@ class view_log_sensor(ProtectedPage):
             except Exception as ex:
 #                exc_type, exc_value, exc_traceback = sys.exc_info()
 #                err_string = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
-                gv.logger.info('view_log_sensor: No response from slave: ' +
+                gv.logger.info('view_log_sensor: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -969,7 +969,7 @@ class clear_log_sensor(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ldcl', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('clear_log_sensor: No response from slave: ' +
+                gv.logger.info('clear_log_sensor: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1084,7 +1084,7 @@ class multigraph_sensors(ProtectedPage):
                 # likely coming from one substations sensor page to another substation without the sensor
                 # Go to /lda without being caught by current try/exception
             except Exception as ex:
-                gv.logger.info('multigraph_sensors: No response from slave: ' +
+                gv.logger.info('multigraph_sensors: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')

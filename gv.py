@@ -48,7 +48,7 @@ substation_index = 0
 last_ip = 'No IP Settings'
 external_ip = ''
 
-radio_iface = 'dnttn0' # these get updated by substation_proxy if changed...valid for slaves
+radio_iface = 'dnttn0' # these get updated by substation_proxy if changed...valid for subordinates
 vpn_iface = 'vpntun0'
 
 radio_dev = '/dev/dnt900'
@@ -116,10 +116,10 @@ sd = {
     u"show": [],
     u"salt": password_salt(),
     u"lang": u"en_US",
-    u"master":1,
-    u"slave":1,
-    u"master_ip":u"localhost",
-    u"master_port":80,
+    u"main":1,
+    u"subordinate":1,
+    u"main_ip":u"localhost",
+    u"main_port":80,
     u"substation_network": u"Irricloud-Network",
     u"tepassword":u"",
     u'tepoweron':1,
@@ -192,7 +192,7 @@ recur = []  # future instances for recurring program [start, pid]
 plugin_data = {}  # Empty dictionary to hold plugin based global data
 
 lrun = [0, 0, 0, 0]  # station index, program number, duration, end time (Used in UI)
-scount = 0  # Station count, used in set station to track on stations with master association.
+scount = 0  # Station count, used in set station to track on stations with main association.
 use_gpio_pins = True
 
 # Array indexing to interpret programs....Yuck
@@ -209,9 +209,9 @@ options = []
 #    [_("Language"),"list","lang", _("Select language."),_("System")],
 #    [_("HTTP port"), "int", "htp", _("HTTP port."), _("System")],
 #    [_("Station delay"), "int", "sdt", _("Station delay time (in seconds), between 0 and 240."), _("Station Handling")],
-#    [_("Master station"), "int", "mas",_( "Select master station."), _("Station Handling")],
-#    [_("Master on adjust"), "int", "mton", _("Master on delay (in seconds)."), _("Station Handling")],
-#    [_("Master off adjust"), "int", "mtoff", _("Master off delay (in seconds)."), _("Station Handling")],
+#    [_("Main station"), "int", "mas",_( "Select main station."), _("Station Handling")],
+#    [_("Main on adjust"), "int", "mton", _("Main on delay (in seconds)."), _("Station Handling")],
+#    [_("Main off adjust"), "int", "mtoff", _("Main off delay (in seconds)."), _("Station Handling")],
 #    [_("Use rain sensor"), "boolean", "urs", _("Use rain sensor."), _("Rain Sensor")],
 #    [_("Normally open"), "boolean", "rst", _("Rain sensor type."), _("Rain Sensor")],
 #    [_("System name"), "string", "name", _("Unique name of this Irricloud system."), _("System")], \

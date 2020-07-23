@@ -132,7 +132,7 @@ class view_camera(ProtectedPage):
                         gv.logger.critical('Could not write camera_temp.jpg.  ex: ' + str(ex))
                 return template_render.camera(subid, data['camera'])
             except Exception as ex:
-                gv.logger.exception('view_camera: No response from slave: ' +
+                gv.logger.exception('view_camera: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -179,7 +179,7 @@ class change_camera(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'cau', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('change_camera: No response from slave: ' +
+                gv.logger.info('change_camera: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -200,7 +200,7 @@ class pic(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'cap', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('pic: No response from slave: ' +
+                gv.logger.info('pic: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')

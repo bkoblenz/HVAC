@@ -38,7 +38,7 @@ class StatusChecker():
             'ver_date': gv.ver_date,
             'status': '',
             'remote': 'None!',
-            'master': gv.sd['master'],
+            'main': gv.sd['main'],
             'can_update': False,
             'update_fw': ''}
 
@@ -73,13 +73,13 @@ class StatusChecker():
         if remote:
             self.status['remote'] = remote
 
-        command = 'git log -1 origin/master --format=%cd --date=short'
+        command = 'git log -1 origin/main --format=%cd --date=short'
         new_date = subprocess.check_output(command.split()).strip()
 
-        command = 'git rev-list origin/master --count --first-parent'
+        command = 'git rev-list origin/main --count --first-parent'
         new_revision = int(subprocess.check_output(command.split()))
 
-        command = 'git log HEAD..origin/master --oneline'
+        command = 'git log HEAD..origin/main --oneline'
         changes = '  ' + '\n  '.join(subprocess.check_output(command.split()).split('\n'))
 
         latest_fw = latest_firmware()
@@ -219,7 +219,7 @@ def perform_update():
         command = "git config core.filemode true"
         subprocess.call(command.split())
 
-        command = "git checkout master"  # Make sure we are on the master branch
+        command = "git checkout main"  # Make sure we are on the main branch
         output = subprocess.check_output(command.split())
 
         command = "git stash"  # stash any local changes
@@ -228,7 +228,7 @@ def perform_update():
         command = "git fetch"
         output = subprocess.check_output(command.split())
 
-        command = "git merge -X theirs origin/master"
+        command = "git merge -X theirs origin/main"
         output = subprocess.check_output(command.split())
 
         command = "rm sessions/*"
@@ -273,7 +273,7 @@ class status_page(ProtectedPage):
                 subid, data = load_and_save_remote(qdict, [], 'susldr', 'data', {'update_status':1})
                 return template_render.system_update(subid, data['update_status'])
             except Exception as ex:
-                gv.logger.info('view_system_update: No response from slave: ' +
+                gv.logger.info('view_system_update: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -299,7 +299,7 @@ class update_page(ProtectedPage):
                 subid, data = load_and_save_remote(qdict, [], 'UPu', 'substation', '0')
             except Exception as ex:
                 try:
-                    gv.logger.info('system_update: No response from slave: ' +
+                    gv.logger.info('system_update: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                     gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 except Exception as ex1:

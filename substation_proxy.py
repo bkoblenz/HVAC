@@ -34,7 +34,7 @@ class WebPage(object):
         gv.cputemp = get_cpu_temp()
 
 class ProxyIn(WebPage):
-    """Provide a gateway for the master to reach slaves on a local network behind this gateway."""
+    """Provide a gateway for the main to reach subordinates on a local network behind this gateway."""
 
     def GET(self):
         qdict = web.input()
@@ -79,13 +79,13 @@ class ProxyIn(WebPage):
             data = json.load(datas)
             ret_str = json.dumps(data)
         except Exception as ex:
-            self.logger.exception('proxy_in: No response from slave: ' + addr + ' urlcmd: ' + urlcmd + ' ex: ' + str(ex))
+            self.logger.exception('proxy_in: No response from subordinate: ' + addr + ' urlcmd: ' + urlcmd + ' ex: ' + str(ex))
 
         web.header('Content-Type', 'application/json')
         return ret_str
 
 class ProxyOut(WebPage):
-    """Provide a gateway for slaves to reach the master."""
+    """Provide a gateway for subordinates to reach the main."""
 
     def GET(self):
         qdict = web.input()
@@ -93,27 +93,27 @@ class ProxyOut(WebPage):
             cmd = qdict['command']
             params = qdict['parameters']
             paramo = json.loads(params)
-            slave_ip = paramo['ip']
-            slave_port = int(paramo['port'])
-            slave_addr = slave_ip if slave_port == 0 or slave_port == 80 else slave_ip+':'+str(slave_port)
-            slave_name = paramo['name']
-            slave_proxy = paramo['proxy']
+            subordinate_ip = paramo['ip']
+            subordinate_port = int(paramo['port'])
+            subordinate_addr = subordinate_ip if subordinate_port == 0 or subordinate_port == 80 else subordinate_ip+':'+str(subordinate_port)
+            subordinate_name = paramo['name']
+            subordinate_proxy = paramo['proxy']
         except:
             raise web.unauthorized()
 
         ret_str = json.dumps({'unreachable':1})
         paramo['port'] = 9080
         paramo['ip'] = get_ip_for_base()
-        paramo['proxy'] = slave_addr if slave_proxy == '' else slave_addr + ';' + slave_proxy
+        paramo['proxy'] = subordinate_addr if subordinate_proxy == '' else subordinate_addr + ';' + subordinate_proxy
 #        self.logger.debug('proxy_out: ip: ' + paramo['ip'] + ' port: ' + str(paramo['port']) + ' proxy: ' + paramo['proxy'])
         try:
-            if gv.sd['master_ip'] != '':
+            if gv.sd['main_ip'] != '':
                 urlcmd = 'http://' + get_ip_to_base()
-                if gv.sd['master_port'] != 0 and gv.sd['master_port'] != 80:
-                    urlcmd += ':' + str(gv.sd['master_port'])
+                if gv.sd['main_port'] != 0 and gv.sd['main_port'] != 80:
+                    urlcmd += ':' + str(gv.sd['main_port'])
                 urlcmd += '/' + cmd + '?data=' + urllib.quote_plus(json.dumps(paramo))
             else:
-                self.logger.critical('No master for proxy')
+                self.logger.critical('No main for proxy')
 #            self.logger.debug('proxy_out: attempt urlcmd: ' + urlcmd)
             timeout_adder = extra_timeout(urlcmd)
             datas = urllib2.urlopen(urlcmd, timeout=gv.url_timeout+timeout_adder)
@@ -121,7 +121,7 @@ class ProxyOut(WebPage):
             data = json.load(datas)
             ret_str = json.dumps(data)
         except Exception as ex:
-            self.logger.info('proxy_out: No response from master for slave: ' + slave_name + ' urlcmd: ' + urlcmd + ' ex: ' + str(ex))
+            self.logger.info('proxy_out: No response from main for subordinate: ' + subordinate_name + ' urlcmd: ' + urlcmd + ' ex: ' + str(ex))
 
         web.header('Content-Type', 'application/json')
         return ret_str
@@ -179,8 +179,8 @@ regs = {
     '0304': {'name':'SPI_Mode','reg':0x4,'bank':0x3,'span':1,'val':'0'},
     '0305': {'name':'SPI_Divisor','reg':0x5,'bank':0x3,'span':1,'val':'0'},
     '0306': {'name':'SPI_Options','reg':0x6,'bank':0x3,'span':1,'val':'0'},
-    '0307': {'name':'SPI_MasterCmdLen','reg':0x7,'bank':0x3,'span':1,'val':'0'},
-    '0308': {'name':'SPI_MasterCmdStr','reg':0x8,'bank':0x3,'span':32,'val':'0'},
+    '0307': {'name':'SPI_MainCmdLen','reg':0x7,'bank':0x3,'span':1,'val':'0'},
+    '0308': {'name':'SPI_MainCmdStr','reg':0x8,'bank':0x3,'span':32,'val':'0'},
     '0400': {'name':'ProtocolMode','reg':0x0,'bank':0x4,'span':1,'val':'0'},
     '0506': {'name':'ADC0','reg':0x6,'bank':0x5,'span':2,'val':'0'},
     '0508': {'name':'ADC1','reg':0x8,'bank':0x5,'span':2,'val':'0'},
@@ -250,15 +250,15 @@ class TunManager:
         self.tun_iface = {}
         self.tun_radio_start_in_progress = False
         self.substation_proxy = proxy
-        # 10.1.128.sn# and 10.1.0.sn# are used for wifi master slave comms.
-        # 10.2.254.1 is master radio
-        # 10.2.x.y where x!=254 is used for slave radios reaching master
-        # 10.sn#.254.1 is used for slave base radio
-        # 10.sn#.x.y where x!=254 is used for slave radios reaching slave at sn#
+        # 10.1.128.sn# and 10.1.0.sn# are used for wifi main subordinate comms.
+        # 10.2.254.1 is main radio
+        # 10.2.x.y where x!=254 is used for subordinate radios reaching main
+        # 10.sn#.254.1 is used for subordinate base radio
+        # 10.sn#.x.y where x!=254 is used for subordinate radios reaching subordinate at sn#
         self.substations = [str(i) for i in range(3,254)]
         self.substation_lock = threading.RLock()
         self.log_tun = False
-        if gv.sd['master']:
+        if gv.sd['main']:
             start_thread('receive_persistent_tunnel', self.receive_persistent_tunnel)
         start_thread('persistent tunnel', self.persistent_tunnel)
 
@@ -313,7 +313,7 @@ class TunManager:
 
             if tun_index == 'radio':
                 try:
-                    subprocess.call(['/etc/init.d/bind9', 'stop']) # only have running when master radio is running
+                    subprocess.call(['/etc/init.d/bind9', 'stop']) # only have running when main radio is running
                     logger.info('stop_tun stop bind9')
                 except:
                     logger.critical('stop_tun could not stop bind9')
@@ -482,12 +482,12 @@ class TunManager:
             self.substations.append(substation)
 
     def receive_persistent_tunnel(self):
-        """Listen for up to 128 slave requests and assign substation numbers in range 2..254"""
+        """Listen for up to 128 subordinate requests and assign substation numbers in range 2..254"""
 
         logger.debug('entering receive_persistent_tunnel')
         while True:
             try:
-                # master radio gets 10.2.254.1
+                # main radio gets 10.2.254.1
                 self.substation_proxy.radio_interface.network_prefix = '10.2'
 
                 # create a socket object
@@ -514,27 +514,27 @@ class TunManager:
             except:
                 self.log_tun = False
             try:
-                if gv.sd['slave'] and gv.sd['master_ip'] and not gv.sd['master']:
+                if gv.sd['subordinate'] and gv.sd['main_ip'] and not gv.sd['main']:
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     port = 9081 if gv.sd['external_proxy_port'] == 0 else gv.sd['external_proxy_port']
-                    logger.info('persistent_tunnel trying connect to ' + gv.sd['master_ip'] + ':' + str(port))
-                    s.connect((gv.sd['master_ip'], port))
+                    logger.info('persistent_tunnel trying connect to ' + gv.sd['main_ip'] + ':' + str(port))
+                    s.connect((gv.sd['main_ip'], port))
                     enc_name = encrypt_name(gv.sd['name'])
                     s.send(enc_name)
-                    connect_params = s.recv(MB/1024) # get substation and master port
+                    connect_params = s.recv(MB/1024) # get substation and main port
                     logger.info('persistent_tunnel received paramaters: ' + connect_params)
                     semi = connect_params.find(';')
                     try:
                         substation = connect_params[:semi]
                         if int(substation) <= 2 or int(substation) >= 254:
                             raise ValueError, 'Invalid Substation'
-                        master_port = int(connect_params[semi+1:])
-                        if master_port <= 0 or master_port > 32767:
+                        main_port = int(connect_params[semi+1:])
+                        if main_port <= 0 or main_port > 32767:
                             raise ValueError, 'Invalid port number'
                     except:
                         raise
-                    logger.info('persistent_tunnel got substation: ' + substation + ' port: ' + str(master_port))
-                    gv.sd['master_port'] = master_port
+                    logger.info('persistent_tunnel got substation: ' + substation + ' port: ' + str(main_port))
+                    gv.sd['main_port'] = main_port
                     tun_index = 's'+substation
                     self.init_tun(tun_index)
                     # substation radio gets 10.substation.254.1
@@ -560,7 +560,7 @@ class TunManager:
                             logger.exception('persistent_tunnel cannot close socket')
                 time.sleep(5)
             except Exception as ex:
-                # maybe master not up or connection dropped.
+                # maybe main not up or connection dropped.
                 logger.info('persistent_socket socket.error....closing s')
                 try:
                     s.close()
@@ -590,7 +590,7 @@ class TunManager:
             ifconfig_params = ['ifconfig', ifname, radio_ip+'/16']
             rc = subprocess.call(ifconfig_params)
             logger.info(' '.join(ifconfig_params) + ' rc: ' + str(rc))
-            if not gv.sd['master_ip']:
+            if not gv.sd['main_ip']:
                 # if no internet access, use base radio for routes we dont understand
                 base_radio = radio.network_prefix + '.254.1'
                 route_params = ['route', 'add', 'default', 'gw', base_radio]
@@ -649,24 +649,24 @@ class TunManager:
         ifs = ioctl(f, TUNSETIFF, struct.pack("16sH", "vpntun%d", TUNMODE))
         ifname = ifs[:16].strip("\x00")
         if tun_index[0] == 's':
-            gv.vpn_iface = ifname # only used for slaves
+            gv.vpn_iface = ifname # only used for subordinates
         self.tun_iface[tun_index] = ifname
         logger.debug('init_tun ifname: ' + ifname)
-        master_ip = '10.1.128.'+tun_index[1:] # dropping leading 's' or 'm'
+        main_ip = '10.1.128.'+tun_index[1:] # dropping leading 's' or 'm'
         tun_ip_address = '10.1.0.'+tun_index[1:]
         if tun_index[0] == 'm':
-            local_ip = master_ip
+            local_ip = main_ip
             remote_ip = tun_ip_address
         elif tun_index[0] == 's':
             local_ip = tun_ip_address
-            remote_ip = master_ip
+            remote_ip = main_ip
         else:
             logger.critical('Unexpected tun_index: ' + tun_index)
         ifconfig_params = ['ifconfig', ifname, local_ip, 'pointopoint', remote_ip]
         rc = subprocess.call(ifconfig_params)
         logger.info(' '.join(ifconfig_params) + ' rc: ' + str(rc))
         if tun_index[0] == 's':
-            route_params = ['route', 'add', '-net', '10.0.0.0', 'netmask', '255.0.0.0', 'gw', master_ip]
+            route_params = ['route', 'add', '-net', '10.0.0.0', 'netmask', '255.0.0.0', 'gw', main_ip]
             rc = subprocess.call(route_params)
             logger.info(' '.join(route_params) + ' rc: ' + str(rc))
         elif tun_index[0] == 'm': # route to remote radios from each radio base
@@ -1451,7 +1451,7 @@ class SerialRadio:
                                 datao = json.load(data)
                                 ret_str = json.dumps(datao)
                             except Exception as ex:
-                                logger.debug('rxdata request: No response from slave: ' + addr + ' Exception: ' + str(ex))
+                                logger.debug('rxdata request: No response from subordinate: ' + addr + ' Exception: ' + str(ex))
                                 ret_str = json.dumps({'unreachable':1})
                             frommacraw = [int(mac[0:2],16),int(mac[2:4],16),int(mac[4:],16)]
                             txmsg = self.build_transmit_msg(0, frommacraw[2], frommacraw[1], frommacraw[0], d[4], ret_str)
@@ -1666,7 +1666,7 @@ class SerialRadio:
             self.pack_setregister(0x37, 0x0, 2, 0) # disable heartbeat
             self.pack_setregister(0x19, 0x6, 1, 0x10) # set IO_ReportTrigger to interval timer
             self.pack_setregister(0x1A, 0x6, 4, 60*100) # set IO_ReportInterval to 1 mins (and sample adc)
-            self.pack_setregister(0x4, 0x3, 1, 2) # set SPI_mode to master
+            self.pack_setregister(0x4, 0x3, 1, 2) # set SPI_mode to main
             self.pack_setregister(0x5, 0x3, 1, 10) # set SPI_Divisor at 80.6kb  !!!! Cannot be set less than 10
             self.pack_setregister(0x6, 0x3, 1, 2) # set SPI_Options: CPHA = 1 Clock idle High
             spi_root_cmd = 'SC0123456789abcdef9012345678901'
@@ -1678,8 +1678,8 @@ class SerialRadio:
                 values = (len(spi_root_cmd), spi_root_cmd, remainder_cmd)
                 s = struct.Struct('< B '+str(len(spi_root_cmd))+'s '+str(len(remainder_cmd))+'s')
                 spi_cmd = s.pack(*values)
-                self.pack_setregister(0x8, 0x3, 32, spi_cmd) # SPI_MasterCmdStr
-                self.pack_setregister(0x7, 0x3, 1, len(spi_root_cmd)+1) # SPI_MasterCmdStr cmd + 1byte at beginning for len
+                self.pack_setregister(0x8, 0x3, 32, spi_cmd) # SPI_MainCmdStr
+                self.pack_setregister(0x7, 0x3, 1, len(spi_root_cmd)+1) # SPI_MainCmdStr cmd + 1byte at beginning for len
         else: # no heartbeat on sleeping remotes
             self.pack_setregister(0x37, 0x0, 2, 60) # set heartbeat interval 60s
         if self.power != -1:
@@ -1782,7 +1782,7 @@ class SerialRadio:
                     self.pack_getregister(e['reg'], e['bank'], e['span'])
 
             # update radio_iface and tun_iface for sip.
-            if gv.sd['slave'] and cur_time - last_iface_update_time > 90:
+            if gv.sd['subordinate'] and cur_time - last_iface_update_time > 90:
                 last_iface_update_time = cur_time
                 urlcmd = 'http://localhost'
                 if gv.sd['htp'] != 0 and gv.sd['htp'] != 80:
@@ -1816,7 +1816,7 @@ class SerialRadio:
                         logger.debug('propagate network_prefix: ' + self.network_prefix)
                         addr = self.mac2addr[to_mac]['addr']
                         if 'usertag' not in self.addr2stuff[addr] or len(self.addr2stuff[addr]['usertag']) == 0:
-                            # only propagate to slaves that have a pi attached
+                            # only propagate to subordinates that have a pi attached
                             logger.debug('propagate network_prefix to addr: ' + addr)
                             self.remote_command_response('propagate network_prefix', 3, to_mac, self.cur_mac, self.network_prefix)
                         else:

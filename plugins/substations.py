@@ -28,20 +28,20 @@ import subprocess
 disable_substations = False
 # Add a new url to open the data entry page.  DO THIS AFTER possible error exit in initialize_fm_pins()
 if 'plugins.substations' not in urls:
-    if gv.sd['master']:
+    if gv.sd['main']:
         urls.extend(['/suslv',  'plugins.substations.view_substations',
-                     '/suslj',  'plugins.substations.join_master',
+                     '/suslj',  'plugins.substations.join_main',
                      '/susde',  'plugins.substations.delete_substation',
                      '/suset',  'plugins.substations.set_substation',
                      '/susle',  'plugins.substations.execute_substation'])
-    if gv.sd['slave']:
-        urls.extend(['/susldr',  'plugins.substations.slave_data_request'])
-        urls.extend(['/suiface',  'plugins.substations.slave_iface'])
+    if gv.sd['subordinate']:
+        urls.extend(['/susldr',  'plugins.substations.subordinate_data_request'])
+        urls.extend(['/suiface',  'plugins.substations.subordinate_iface'])
 
     urls.extend(['/surrsd',  'plugins.substations.receive_remote_sensor_data'])
     urls.extend(['/surzd',  'plugins.substations.remote_zone_data'])
 
-    if not gv.sd['slave'] and not gv.sd['master']:
+    if not gv.sd['subordinate'] and not gv.sd['main']:
         disable_substations = True
 
     # Add this plugin to the home page plugins menu
@@ -114,16 +114,16 @@ class SubstationChecker(Thread):
         last_message_base = gv.now - 60
         while True:
             try:
-                if gv.sd['slave'] and gv.now - last_message_base >= 60:
+                if gv.sd['subordinate'] and gv.now - last_message_base >= 60:
                     try:
                         last_message_base = gv.now
                         data = message_base('suslj')
                         if 'unreachable' in data:
-                            raise IOError, 'UnreachableMaster'
+                            raise IOError, 'UnreachableMain'
                         force_reboot = False
-                        # update common data that has changed on the master
+                        # update common data that has changed on the main
                         for grouping in data:
-                            if gv.sd['master']:
+                            if gv.sd['main']:
                                 continue
                             for key in data[grouping]:
                                 if grouping == 'sd':
@@ -172,27 +172,27 @@ class SubstationChecker(Thread):
                             reboot(5) # give a few seconds before reboot
 
                     except Exception as ex:
-                        gv.logger.info('No master response.  ip: ' + get_ip_to_base() + \
-                                       ' port: ' + str(gv.sd['master_port']) + \
+                        gv.logger.info('No main response.  ip: ' + get_ip_to_base() + \
+                                       ' port: ' + str(gv.sd['main_port']) + \
                                        ' Exception: ' + str(ex))
                         try:
                             iwout = subprocess.check_output(['iwconfig', 'wlan0'])
                             lines = iwout.split('\n')
                             for l in lines:
                                 if 'ESSID:' in l:
-                                    gv.logger.info('slave iwconfig wlan0 ' + l[l.find('ESSID:'):])
+                                    gv.logger.info('subordinate iwconfig wlan0 ' + l[l.find('ESSID:'):])
                         except Exception as ex:
-                            gv.logger.info('slave could not check iwconfig: ' + str(ex))
+                            gv.logger.info('subordinate could not check iwconfig: ' + str(ex))
 
-                if gv.sd['master']:
+                if gv.sd['main']:
                     for subid in range(1,len(gv.plugin_data['su']['subinfo'])):
                         sub = gv.plugin_data['su']['subinfo'][subid]
                         try:
                             if sub['status'] != 'unreachable' and gv.now - sub['last_join'] >= 90: # if havent received join in a while reach out
                                 qd = {'substation':subid}
-                                load_and_save_remote(qd, [], 'susldr', 'data', {}) # touch a slave to ensure still alive
+                                load_and_save_remote(qd, [], 'susldr', 'data', {}) # touch a subordinate to ensure still alive
                         except Exception as ex:
-                            gv.logger.info('substations reach out to slave: No response from slave: ' +
+                            gv.logger.info('substations reach out to subordinate: No response from subordinate: ' +
                                            sub['name'] + ' Exception: ' + str(ex))
                             sub['status'] = 'unreachable'
                             try:
@@ -200,9 +200,9 @@ class SubstationChecker(Thread):
                                 lines = iwout.split('\n')
                                 for l in lines:
                                     if 'ESSID:' in l:
-                                        gv.logger.info('master iwconfig wlan0 ' + l[l.find('ESSID:'):])
+                                        gv.logger.info('main iwconfig wlan0 ' + l[l.find('ESSID:'):])
                             except Exception as ex:
-                                gv.logger.info('master could not check iwconfig: ' + str(ex))
+                                gv.logger.info('main could not check iwconfig: ' + str(ex))
 
             except Exception as ex:
                 self.start_status('', 'Substation encountered error: ' + str(ex))
@@ -230,13 +230,13 @@ class view_substations(ProtectedPage):
                 qd = {'substation':subid}
                 load_and_save_remote(qd, [], 'susldr', 'data', {})
             except Exception as ex:
-                gv.logger.info('view_substations: No response from slave: ' +
+                gv.logger.info('view_substations: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
         return template_render.substations(head, cont, gv.plugin_data['su']['subinfo'])
 
 class delete_substation(ProtectedPage):
-    """ Delete a substation, and regenerate links to perform an operation on a slave."""
+    """ Delete a substation, and regenerate links to perform an operation on a subordinate."""
 
     def GET(self):
         qdict = web.input()
@@ -293,7 +293,7 @@ class set_substation(ProtectedPage):
         raise web.seeother(url)
 
 class execute_substation(ProtectedPage):
-    """ Generate links to perform an operation on a slave."""
+    """ Generate links to perform an operation on a subordinate."""
 
     def GET(self):
         qdict = web.input()
@@ -302,8 +302,8 @@ class execute_substation(ProtectedPage):
         raise web.seeother('/'+cont+'?substation='+str(subid))
 
 # unprotected page that must do its own security check
-class join_master(WebPage):
-    """ Capture a slave that is part of the group and return common data"""
+class join_main(WebPage):
+    """ Capture a subordinate that is part of the group and return common data"""
 
     def GET(self):
         qdict = web.input()
@@ -317,7 +317,7 @@ class join_master(WebPage):
         ddict['status'] = 'ok'
 
 #        gv.logger.debug('joining ip: ' + ddict['ip'] + ' name: ' + ddict['name'] + ' proxy: ' + ddict['proxy'])
-        found_slave = 0
+        found_subordinate = 0
         for i,d in enumerate(gv.plugin_data['su']['subinfo']):
             if i == 0:
                 continue
@@ -335,16 +335,16 @@ class join_master(WebPage):
 
                 for p in ['ip', 'port', 'proxy', 'status', 'last_join']:
                     gv.plugin_data['su']['subinfo'][i][p] = ddict[p]
-                found_slave = i
+                found_subordinate = i
                 break
 
-        if found_slave == 0:
-            gv.logger.info('join_master adding substation: ' + ddict['name'] + ' at ip: ' + ddict['ip'] + ' proxy: ' + ddict['proxy'])
+        if found_subordinate == 0:
+            gv.logger.info('join_main adding substation: ' + ddict['name'] + ' at ip: ' + ddict['ip'] + ' proxy: ' + ddict['proxy'])
             gv.plugin_data['su']['subinfo'].append(ddict)
-            found_slave = len(gv.plugin_data['su']['subinfo']) - 1
+            found_subordinate = len(gv.plugin_data['su']['subinfo']) - 1
             if gv.substation == '':
                 gv.substation = ddict['name']
-                gv.substation_index = found_slave
+                gv.substation_index = found_subordinate
             gv.plugin_data['su']['subdesc'].append(gv.plugin_data['su']['subdesc'][0].copy())
             su_strip = gv.plugin_data['su'].copy()
             del su_strip['subdesc'] # dont save active data
@@ -367,8 +367,8 @@ class join_master(WebPage):
 
         return json.dumps(result)
 
-class slave_data_request(ProtectedPage):
-    """Provide data to the master as the response if this looks like the master."""
+class subordinate_data_request(ProtectedPage):
+    """Provide data to the main as the response if this looks like the main."""
 
     def GET(self):
         qdict = web.input()
@@ -515,15 +515,15 @@ class slave_data_request(ProtectedPage):
             reboot(5)  # give a few seconds to reply
         return ret_str
 
-class slave_iface(WebPage):
-    """Provide data to the master as the response if this looks like the master."""
+class subordinate_iface(WebPage):
+    """Provide data to the main as the response if this looks like the main."""
 
     def GET(self):
         qdict = web.input()
         remote = web.ctx.env['REMOTE_ADDR']
-#        print 'slave iface remote: ' + remote + ' qdict: ' + str(qdict)
+#        print 'subordinate iface remote: ' + remote + ' qdict: ' + str(qdict)
         if remote != '127.0.0.1':
-            gv.logger.info('slave_iface invalid remote: ' + remote)
+            gv.logger.info('subordinate_iface invalid remote: ' + remote)
             raise web.unauthorized()
 
         gv.radio_iface = qdict['radio']

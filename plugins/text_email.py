@@ -154,7 +154,7 @@ class EmailSender(Thread):
 
     def try_mail(self, subject, body, attachment=None):
         try:
-            if gv.sd['master']:
+            if gv.sd['main']:
                 email(subject, gv.sd['name'] + ': ' + body, attachment)
                 self.start_status('Email was sent: ' + body)
                 gv.logger.debug('email sent.  body: ' + body)
@@ -213,7 +213,7 @@ class EmailSender(Thread):
 #                            self.try_mail(subject, body)    # send email without attachments
 
                 now = gv.now
-                if now % 5 == 0 and gv.sd['master'] and \
+                if now % 5 == 0 and gv.sd['main'] and \
                       'su' in gv.plugin_data and gv.sd['tesu']:  # if tesu, send email if substation availability changes
                     give_notice = []
                     if 'tesubstatus' not in gv.plugin_data['te']:
@@ -325,7 +325,7 @@ class update(ProtectedPage):
         raise web.seeother('/')
 
 class email_request(WebPage): # does its own security checking
-    """A slave is asking the master to send email on its behalf."""
+    """A subordinate is asking the main to send email on its behalf."""
 
     def GET(self):
         qdict = web.input()
@@ -341,11 +341,11 @@ class email_request(WebPage): # does its own security checking
         try:
             subj = ddict['subject']
             body = ddict['body']
-            if gv.sd['master']:
+            if gv.sd['main']:
                 email(subj, body)
                 ret_str = json.dumps({'status':0})
             else:
-                gv.logger.error('mail not sent by slave body: ' + body)
+                gv.logger.error('mail not sent by subordinate body: ' + body)
                 ret_str = json.dumps({'status':1})
         except:
             gv.logger.exception('could not send email. subject: ' + subj + ' body: ' + body)
