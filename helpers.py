@@ -1514,7 +1514,8 @@ def log_event(msg):
     If a record limit is specified (gv.sd['lr']) the number of records is truncated.  
     """
 
-    print 'log: ' + msg
+    #print 'log: ' + msg
+    gv.logger.info('log_event: ' + msg)
     if gv.sd['lg']:
         logline = '{'+time.strftime('"time":"%H:%M:%S","date":"%Y-%m-%d"', time.gmtime(gv.now)) + ',"mode":"' + gv.sd['mode'] + '","message":"' + msg + '"}'
 #        gv.logger.info(logline)

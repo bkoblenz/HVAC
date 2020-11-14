@@ -515,6 +515,7 @@ class change_options(ProtectedPage):
                 gv.sd[f] = 0
 
         gv.sd['boiler_supply_temp'] = float(qdict['oboiler_supply_temp'])
+        gv.sd['USR_ip'] = qdict['oUSR_ip']
         try:
             new_base = float(qdict['oetbase'])
             new_weather = gv.sd['wl_et_weather'] * float(gv.sd['etbase'])/new_base

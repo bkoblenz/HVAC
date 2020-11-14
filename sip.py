@@ -434,10 +434,17 @@ def timing_loop():
                 last_upnp_refresh = gv.now
 
         if gv.now % 60 == 0:
-            gv.logger.info('timing_loop 0')
+            gv.logger.info('timing_loop last_zc: ' + str(last_zc))
         process_actions()
         last_zc = zc
         zc = read_sensor_value('zone_call')
+        try:
+            with open('ZONE_CALL', 'r') as f:
+                gv.logger.info('ZONE_CALL zc: ' + str(zc))
+                if not zc:
+                    zc = 1
+        except:
+            pass
         if zc == None:
             zc = last_zc
             log_event('Failed to read zone_call')
@@ -518,6 +525,7 @@ def timing_loop():
                       'return temp: ' + "{0:.2f}".format(art_c) + 'C ' + "{0:.2f}".format(art_f) + 'F' + '; ' + \
                       'dewpoint: ' + "{0:.2f}".format(dew) + 'C ' + "{0:.2f}".format(dew_f) + 'F')
 
+        #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc))
         if zc != last_zc: # change in zone call
             if gv.sd['mode'] == 'None':
                 zc = last_zc # dont do anything in terms of moving water
