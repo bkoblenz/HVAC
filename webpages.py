@@ -517,6 +517,14 @@ class change_options(ProtectedPage):
         gv.sd['boiler_supply_temp'] = float(qdict['oboiler_supply_temp'])
         gv.sd['USR_ip'] = qdict['oUSR_ip']
         try:
+            gv.sd['thermostats'] = qdict['otherm_ips'].split(',')
+        except:
+            gv.sd['thermostats'] = []
+        for therm_ip_idx in range(len(gv.sd['thermostats']), 0, -1):
+            if not valid_ip(gv.sd['thermostats'][therm_ip_idx-1]):
+                del gv.sd['thermostats'][therm_ip_idx-1]
+        gv.sd['therm_ips'] = ','.join(gv.sd['thermostats'])
+        try:
             new_base = float(qdict['oetbase'])
             new_weather = gv.sd['wl_et_weather'] * float(gv.sd['etbase'])/new_base
             overall_scale = min(max(new_weather,float(gv.sd['etmin'])), float(gv.sd['etmax']))

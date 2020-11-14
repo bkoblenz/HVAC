@@ -267,6 +267,19 @@ def get_macid(net='wlan0'):
         pass
     return "No MAC Address"
 
+def valid_ip(ip):
+    """Return True if we have a valid IP address"""
+    try:
+        octets = ip.split('.')
+        if len(octets) != 4:
+            return False
+        for o in octets:
+            if int(o) < 0 or int(o) > 255:
+                return False
+    except:
+        return False
+    return True
+
 def get_ip(net=''):
     """
     Returns the IP address of 'net' if specified, otherwise 'wlan0', 'eth0', 'dnttun0', 'vpntun0', 'ppp0' whichever is found first.

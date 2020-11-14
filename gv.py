@@ -136,6 +136,8 @@ sd = {
     u"etapi":u"",
     u"light_ip":1,
     u"USR_ip": "192.168.86.115",
+    u"therm_ips": "",
+    u"thermostats": [],
 }
 
 for i in range(5):
@@ -222,7 +224,8 @@ options += \
     [_("24-hour clock"), "boolean", "tf", _("Display times in 24 hour format (as opposed to AM/PM style.)"), _("System")], \
     [_("Mode"), "list", "mode", _("Heating or cooling mode."), _("System")], \
     [_("Boiler Supply Temp"), "float", "boiler_supply_temp", _("Water supply temperature below which boiler will turn on."), _("System")], \
-    [_("USR Dewpoint IP"), "string", "USR_ip", _("IP address of USR dewpoint sensor."), _("System")],
+    [_("USR Dewpoint IP"), "string", "USR_ip", _("IP address of USR dewpoint sensor."), _("System")], \
+    [_("Thermostat IPs"), "string", "therm_ips", _("Comma separated IP addresses of radiothermostat.com devices."), _("System")],
 
 if sd['enable_upnp']:
     options += [_("Remote support"), "int", "remote_support_port", _("Enable remote ssh access for support."), _("System")],

@@ -36,7 +36,21 @@ def dewpoint(t,rh):
     g = gamma(t,rh)
     return c*g / (b-g)
 
-TCP_PORT = 8899
+def explore_sockets(ip):
+    for i in range(10, 0xffff):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        try:
+            s.connect((ip, i))
+            print 'SUCCESS connect ', ip, i
+            s.close()
+            time.sleep(3)
+        except:
+            if i % 500 == 0:
+                print 'failed connect ', ip, i
+            pass
+
+USR_TCP_PORT = 8899
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 def connect_socket():
@@ -47,7 +61,7 @@ def connect_socket():
     s.settimeout(30)
     for i in range(60):
         try:
-            s.connect((gv.sd['USR_ip'], TCP_PORT))
+            s.connect((gv.sd['USR_ip'], USR_TCP_PORT))
             break
         except:
 #            log_event('Retry connect...')
