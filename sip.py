@@ -337,7 +337,7 @@ def read_sensor_value(name):
             cmd = 'http://' + ip + '/tstat'
             try:
                 data = json.loads(urlopen(cmd, timeout=5).read().decode('utf-8'))
-                gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
+                #gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
                 if gv.sd['mode'] in ['Heatpump Cooling']:
                     if data['tmode'] in [2,3] and data['temp'] > data['t_cool']:
                         zc = 1
@@ -419,8 +419,8 @@ def timing_loop():
             last_min = gv.now // 60
             zct = read_sensor_value('zone_call_thermostats')
             if zct:
-                zc = read_sensor_value('zone_call')
-                if not zc:
+                tzc = read_sensor_value('zone_call')
+                if not tzc:
                     gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat')
             update_radio_present()
             max_bd = -1
@@ -488,6 +488,11 @@ def timing_loop():
         process_actions()
         last_zc = zc
         zc = read_sensor_value('zone_call')
+        if zct and not zc:
+            zc = zct
+        if zc == None:
+            zc = last_zc
+            log_event('Failed to read zone_call')
         try:
             with open('ZONE_CALL', 'r') as f:
                 gv.logger.info('ZONE_CALL zc: ' + str(zc))
@@ -495,11 +500,6 @@ def timing_loop():
                     zc = 1
         except:
             pass
-        if zc == None:
-            zc = last_zc
-            log_event('Failed to read zone_call')
-        if zct and not zc:
-            zc = zct
         boiler_md = get_boiler_mode()
         heatpump_md = get_heatpump_mode()
         if gv.sd['mode'] != last_mode: # turn everything off
@@ -577,7 +577,7 @@ def timing_loop():
                       'return temp: ' + "{0:.2f}".format(art_c) + 'C ' + "{0:.2f}".format(art_f) + 'F' + '; ' + \
                       'dewpoint: ' + "{0:.2f}".format(dew) + 'C ' + "{0:.2f}".format(dew_f) + 'F')
 
-        #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc))
+        #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
         if zc != last_zc: # change in zone call
             if gv.sd['mode'] == 'None':
                 zc = last_zc # dont do anything in terms of moving water
