@@ -520,10 +520,11 @@ class change_options(ProtectedPage):
             gv.sd['thermostats'] = qdict['otherm_ips'].split(',')
         except:
             gv.sd['thermostats'] = []
+        gv.sd['thermostats'] = [t.strip() for t in gv.sd['thermostats']]
         for therm_ip_idx in range(len(gv.sd['thermostats']), 0, -1):
             if not valid_ip(gv.sd['thermostats'][therm_ip_idx-1]):
                 del gv.sd['thermostats'][therm_ip_idx-1]
-        gv.sd['therm_ips'] = ','.join(gv.sd['thermostats'])
+        gv.sd['therm_ips'] = ', '.join(gv.sd['thermostats'])
         try:
             new_base = float(qdict['oetbase'])
             new_weather = gv.sd['wl_et_weather'] * float(gv.sd['etbase'])/new_base

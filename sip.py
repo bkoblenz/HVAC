@@ -27,6 +27,13 @@ from gpio_pins import set_output
 import i2c
 from i2c import i2c_read, i2c_write
 
+import urllib
+try:
+    from urllib2 import urlopen
+except:
+    from urllib.request import urlopen
+
+
 b = 17.67 # see wikipedia
 c = 243.5
 def gamma(t,rh):
@@ -323,7 +330,30 @@ def read_sensor_value(name):
     for s in gv.plugin_data['ld']:
         if s['name'] == name:
             return s['last_read_value']
-    return None
+
+    zc = None
+    if name == 'zone_call_thermostats':
+        for ip in gv.sd['thermostats']:
+            cmd = 'http://' + ip + '/tstat'
+            try:
+                data = json.loads(urlopen(cmd, timeout=5).read().decode('utf-8'))
+                gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
+                if gv.sd['mode'] in ['Heatpump Cooling']:
+                    if data['tmode'] in [2,3] and data['temp'] > data['t_cool']:
+                        zc = 1
+                    elif zc == None:
+                        zc = 0
+                elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
+                    if data['tmode'] in [1,3] and data['temp'] < data['t_heat']: 
+                        zc = 1
+                    elif zc == None:
+                        zc = 0
+            except Exception as ex:
+                pass
+
+        if zc == None:
+            gv.logger.warning('read_sensor_value failed to get thermostat data from ANY thermostat: ' + str(gv.sd['thermostats']))
+    return zc
 
 def read_temps():
     temps = []
@@ -377,6 +407,7 @@ def timing_loop():
     # force everything off
 
     set_output()
+    zct = 0
     while True:  # infinite loop
       try:
         time.sleep(1)
@@ -386,6 +417,11 @@ def timing_loop():
         if gv.now // 60 != last_min:  # only check programs once a minute
             boiler_supply_crossover = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
+            zct = read_sensor_value('zone_call_thermostats')
+            if zct:
+                zc = read_sensor_value('zone_call')
+                if not zc:
+                    gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat')
             update_radio_present()
             max_bd = -1
             boards = i2c.get_vsb_boards()
@@ -462,6 +498,8 @@ def timing_loop():
         if zc == None:
             zc = last_zc
             log_event('Failed to read zone_call')
+        if zct and not zc:
+            zc = zct
         boiler_md = get_boiler_mode()
         heatpump_md = get_heatpump_mode()
         if gv.sd['mode'] != last_mode: # turn everything off
