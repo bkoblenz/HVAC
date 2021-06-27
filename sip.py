@@ -123,7 +123,7 @@ def get_temp_hum():
         connect_socket() # reestablish connection
         raise
 
-dew = 25
+dew = gv.sd['max_dewpoint']
 failed_dewpoint_read = 0
 def dewpoint_loop():
     global dew, failed_dewpoint_read
@@ -143,7 +143,7 @@ def dewpoint_loop():
         except Exception as ex:
             try:
                 if failed_dewpoint_read > 5: # a few failures before panicing
-                    dew = 16
+                    dew = gv.sd['max_dewpoint']
                 failed_dewpoint_read += 1
                 if failed_dewpoint_read < 10:
                     if failed_dewpoint_read % 10 == 2: # first exception should get cleared by reconnect and is normal
