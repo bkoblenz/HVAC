@@ -39,9 +39,20 @@ c = 243.5
 def gamma(t,rh):
     return (b*t / (c+t)) + math.log(rh/100.0)
 
+high_dewpoint = 0
 def dewpoint(t,rh):
+    global high_dewpoint
+
     g = gamma(t,rh)
-    return c*g / (b-g)
+    dp = c*g / (b-g)
+    if dp > gv.sd['max_dewpoint']:
+        if high_dewpoint % 100 == 0:
+            log_event('DEWPOINT TOO HIGH ' + str(dp) + ' using: ' + str(gv.sd['max_dewpoint']))
+        high_dewpoint += 1
+        return gv.sd['max_dewpoint']
+    else:
+        high_dewpoint = 0
+        return dp
 
 def explore_sockets(ip):
     for i in range(10, 0xffff):

@@ -516,6 +516,7 @@ class change_options(ProtectedPage):
 
         gv.sd['boiler_supply_temp'] = float(qdict['oboiler_supply_temp'])
         gv.sd['USR_ip'] = qdict['oUSR_ip']
+        gv.sd['max_dewpoint'] = float(qdict['omax_dewpoint'])
         try:
             gv.sd['thermostats'] = qdict['otherm_ips'].split(',')
         except:
