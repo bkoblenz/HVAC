@@ -225,7 +225,7 @@ options += \
     [_("24-hour clock"), "boolean", "tf", _("Display times in 24 hour format (as opposed to AM/PM style.)"), _("System")], \
     [_("Mode"), "list", "mode", _("Heating or cooling mode."), _("System")], \
     [_("Boiler Supply Temp"), "float", "boiler_supply_temp", _("Water supply temperature below which boiler will turn on."), _("System")], \
-    [_("Max Dewpoint (degrees C)"), "string", "max_dewpoint", _("Limit dewpoint to this value."), _("System")], \
+    [_("Max Dewpoint (degrees C)"), "float", "max_dewpoint", _("Limit dewpoint to this value."), _("System")], \
     [_("USR Dewpoint IP"), "string", "USR_ip", _("IP address of USR dewpoint sensor."), _("System")], \
     [_("Thermostat IPs"), "bigstring", "therm_ips", _("Comma separated IP addresses of radiothermostat.com devices."), _("System")],
 
