@@ -77,7 +77,7 @@ def connect_socket():
     s.close()
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(30)
-    for i in range(60):
+    for i in range(6):
         try:
             s.connect((gv.sd['USR_ip'], USR_TCP_PORT))
             break
@@ -344,6 +344,7 @@ def read_sensor_value(name):
 
     zc = None
     if name == 'zone_call_thermostats':
+        max_gap = 0
         for ip in gv.sd['thermostats']:
             cmd = 'http://' + ip + '/tstat'
             try:
@@ -352,11 +353,16 @@ def read_sensor_value(name):
                 if gv.sd['mode'] in ['Heatpump Cooling']:
                     if data['tmode'] in [2,3] and data['temp'] > data['t_cool']:
                         zc = 1
+                        local_gap = (data['temp']-data['t_cool'])/1.8 # degrees C
+                        max_gap = max(max_gap, local_gap)
                     elif zc == None:
                         zc = 0
                 elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
                     if data['tmode'] in [1,3] and data['temp'] < data['t_heat']: 
                         zc = 1
+                        local_gap = (data['t_heat']-data['temp'])/1.8 # degrees C
+                        max_gap = max(max_gap, local_gap)
+                        gv.logger.info('ip: ' + ip + ' temp: ' + str(data['temp']) + ' target: ' + str(data['t_heat']) + ' gap: ' + str(max_gap) + ' localgap: ' + str(local_gap))
                     elif zc == None:
                         zc = 0
             except Exception as ex:
@@ -364,6 +370,7 @@ def read_sensor_value(name):
 
         if zc == None:
             gv.logger.warning('read_sensor_value failed to get thermostat data from ANY thermostat: ' + str(gv.sd['thermostats']))
+        return zc, max_gap
     return zc
 
 def read_temps():
@@ -419,6 +426,7 @@ def timing_loop():
 
     set_output()
     zct = 0
+    sustained_cold = int(time.time())
     while True:  # infinite loop
       try:
         time.sleep(1)
@@ -426,13 +434,19 @@ def timing_loop():
         gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
         # perform once per minute processing
         if gv.now // 60 != last_min:  # only check programs once a minute
+            print 'timing'
             boiler_supply_crossover = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
-            zct = read_sensor_value('zone_call_thermostats')
+            zct, max_gap = read_sensor_value('zone_call_thermostats')
             if zct:
+                if max_gap <= 1:
+                    sustained_cold = int(time.time()) # reset as we are close enough
+                #gv.logger.info('max_gap: ' + str(max_gap) + ' for: ' + str(int(time.time())-sustained_cold) + ' seconds')
                 tzc = read_sensor_value('zone_call')
                 if not tzc:
                     gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat')
+            else:
+                sustained_gap = int(time.time())
             update_radio_present()
             max_bd = -1
             boards = i2c.get_vsb_boards()
@@ -495,7 +509,7 @@ def timing_loop():
                 last_upnp_refresh = gv.now
 
         if gv.now % 60 == 0:
-            gv.logger.info('timing_loop last_zc: ' + str(last_zc))
+            gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(int(time.time())-sustained_cold))
         process_actions()
         last_zc = zc
         zc = read_sensor_value('zone_call')
@@ -522,6 +536,7 @@ def timing_loop():
             gv.srvals[circ_pump] = 0
             set_output()
             last_zc = 0 # mark as was off
+            sustained_cold = int(time.time())
             last_mode = gv.sd['mode']
             remove_action({'what':'set_valve_change'})
             if gv.sd['mode'] in ['Heatpump Cooling'] or \
@@ -645,28 +660,33 @@ def timing_loop():
                         set_heatpump_mode('none')
             if gv.sd['mode'] == 'Heatpump then Boiler':
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
+                switch_to_boiler = False
                 if ave_supply_temp < boiler_supply_crossover:
                     if low_supply_count <= 750: # about 12.5 mins.
                         # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
                         if low_supply_count % 150 == 0:
                             log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
                         low_supply_count += 1
-                    elif boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and \
-                             gv.now-last_heatpump_on > 3*60:
-                        log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
-                        # Use only boiler for a while
-                        if not boiler_through_buffer_tank:
-                            remove_action({'what':'set_valve_change'})
-                            insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
-                        # try an hour to warm things up and allow defrost mode on hp to finish and rewarm tank
-                        last_on_min_gap = (gv.now - last_boiler_on)//60
-#                        gv.logger.info('last_on_min_gap: ' + str(last_on_min_gap) + ' now: ' + str(gv.now) + ' on: ' + str(last_boiler_on))
-                        extra_min = 0 if last_on_min_gap >= 4*60 else 15 if last_on_min_gap >= 3*60 else 30
-                        set_heatpump_mode('none')
-                        set_boiler_mode('heating')
-                        insert_action(gv.now+(extra_min+59)*60, {'what':'set_boiler_mode', 'mode':'none'})
+                    else:
+                        switch_to_boiler = True
                 else:
                     low_supply_count = 0
+                    if int(time.time()) - sustained_cold > 60*60:
+                        switch_to_boiler = True
+                if switch_to_boiler and boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and gv.now-last_heatpump_on > 3*60:
+                    log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' coldgap: ' + str(int(time.time())-sustained_cold))
+                    # Use only boiler for a while
+                    if not boiler_through_buffer_tank:
+                        remove_action({'what':'set_valve_change'})
+                        insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
+                    # try an hour to warm things up and allow defrost mode on hp to finish and rewarm tank
+                    last_on_min_gap = (gv.now - last_boiler_on)//60
+#                    gv.logger.info('last_on_min_gap: ' + str(last_on_min_gap) + ' now: ' + str(gv.now) + ' on: ' + str(last_boiler_on))
+                    extra_min = 0 if last_on_min_gap >= 4*60 else 15 if last_on_min_gap >= 3*60 else 30
+                    set_heatpump_mode('none')
+                    set_boiler_mode('heating')
+                    sustained_cold = int(time.time())
+                    insert_action(gv.now+(extra_min+59)*60, {'what':'set_boiler_mode', 'mode':'none'})
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
                  dewpoint_margin = 1.5
                  target = max(dew+dewpoint_margin+1, 10.)
@@ -845,10 +865,10 @@ if __name__ == '__main__':
     except Exception:
         pass
     
-    gv.logger.debug('Starting dewpoint thread')
+    gv.logger.info('Starting dewpoint thread')
     thread.start_new_thread(dewpoint_loop, ())
 
-    gv.logger.debug('Starting main thread')
+    gv.logger.info('Starting main thread')
     thread.start_new_thread(timing_loop, ())
 
     app.notfound = lambda: web.seeother('/')
