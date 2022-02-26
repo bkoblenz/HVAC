@@ -139,6 +139,8 @@ sd = {
     u"max_dewpoint": 7.0,
     u"therm_ips": "",
     u"thermostats": [],
+    u"cold_gap_time": 60,
+    u"cold_gap_temp": 2.5,
 }
 
 for i in range(5):
@@ -224,7 +226,9 @@ options += \
     [_("Time zone"), "list", "tza", _("Example: US/Pacific."), _("System")], \
     [_("24-hour clock"), "boolean", "tf", _("Display times in 24 hour format (as opposed to AM/PM style.)"), _("System")], \
     [_("Mode"), "list", "mode", _("Heating or cooling mode."), _("System")], \
-    [_("Boiler Supply Temp"), "float", "boiler_supply_temp", _("Water supply temperature below which boiler will turn on."), _("System")], \
+    [_("Boiler Supply Temp (degrees F)"), "float", "boiler_supply_temp", _("Water supply temperature below which boiler will turn on."), _("System")], \
+    [_("Cold Gap Temp (degrees F)"), "float", "cold_gap_temp", _("Degrees below target temperature when considered cold."), _("System")], \
+    [_("Cold Gap Time"), "int", "cold_gap_time", _("Minutes when temperature is Cold Gap degrees below target to enable boiler."), _("System")], \
     [_("Max Dewpoint (degrees C)"), "float", "max_dewpoint", _("Limit dewpoint to this value."), _("System")], \
     [_("USR Dewpoint IP"), "string", "USR_ip", _("IP address of USR dewpoint sensor."), _("System")], \
     [_("Thermostat IPs"), "bigstring", "therm_ips", _("Comma separated IP addresses of radiothermostat.com devices."), _("System")],

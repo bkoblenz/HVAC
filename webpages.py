@@ -515,6 +515,8 @@ class change_options(ProtectedPage):
                 gv.sd[f] = 0
 
         gv.sd['boiler_supply_temp'] = float(qdict['oboiler_supply_temp'])
+        gv.sd['cold_gap_temp'] = float(qdict['ocold_gap_temp'])
+        gv.sd['cold_gap_time'] = int(qdict['ocold_gap_time'])
         gv.sd['USR_ip'] = qdict['oUSR_ip']
         gv.sd['max_dewpoint'] = float(qdict['omax_dewpoint'])
         try:
