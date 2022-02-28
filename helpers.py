@@ -176,10 +176,10 @@ def update_radio_present():
         gv.sd['radio_present'] = False
 
 def propagate_to_substations(cmd, params=''):
-    """Propagate urlcmd to each proxied substation and then slaves (other than ourselves)"""
+    """Propagate urlcmd to each proxied substation and then subordinates (other than ourselves)"""
 
     proxies = []
-    slaves = []
+    subordinates = []
     unreachable = []
     for i in range(1,len(gv.plugin_data['su']['subinfo'])):
         sub = gv.plugin_data['su']['subinfo'][i]
@@ -187,13 +187,13 @@ def propagate_to_substations(cmd, params=''):
             if sub['proxy'] != '':
                 proxies.append(sub)
             elif sub['ip'] != get_ip():
-                slaves.append(sub)
+                subordinates.append(sub)
         else:
             gv.logger.info('propagate_to_substations.  unreachable: ' + sub['name'])
             unreachable.append(sub)
     
-    # do all proxied slaves then slaves.  Otherwise gateway may be shut down
-    propagate = proxies + slaves
+    # do all proxied subordinates then subordinates.  Otherwise gateway may be shut down
+    propagate = proxies + subordinates
     for sub in propagate:
         urlcmd = 'http://' + sub['ip']
         if 'port' in sub and sub['port'] != 80 and sub['port'] != 0:
@@ -465,7 +465,7 @@ def check_and_update_upnp(cur_ip=''):
                 adds.append([gv.sd['htp'], gv.sd['external_htp']])
         if gv.sd['remote_support_port'] != 0:
             adds.append([22, gv.sd['remote_support_port']])
-        if gv.sd['master'] and gv.sd['external_proxy_port'] != 0:
+        if gv.sd['main'] and gv.sd['external_proxy_port'] != 0:
             adds.append([9081, gv.sd['external_proxy_port']])
         update_upnp(cur_ip, gv.logger, [], adds)
 
@@ -1062,7 +1062,7 @@ def run_program(pid, ignore_disable=False):
     for sid in range(gv.sd['nst']):  # check each station
         bid = sid // 8
         s = sid % 8
-        if sid + 1 == gv.sd['mas']:  # skip if this is master valve
+        if sid + 1 == gv.sd['mas']:  # skip if this is main valve
             continue
         if p[gv.p_station_mask_idx + bid] & 1 << s:  # if this station is scheduled in this program
             rs[sid][0] = pid + 1  # store program number in schedule
@@ -1079,7 +1079,7 @@ def schedule_stations(rsin, flags=5):
     Schedule stations/valves/zones to run.  rsin is an array of program, duration indexed by station.
 
     This routine is expected to add or extend runtimes of stations that are already running and adjust the
-    master as needed.
+    main as needed.
 
     'seq' mode is just used to schedule the stations in this list.  If we are here we have already decided
     that it is ok for these stations to run concurrently with what is already running.
@@ -1123,17 +1123,17 @@ def schedule_stations(rsin, flags=5):
         station_list.append([try_time, sid])
 
     station_list.sort(key=itemgetter(0))
-    first_master = -1
-    last_master = first_master
+    first_main = -1
+    last_main = first_main
     if not ban and masid >= 0:
         for tries in station_list:
             sid = tries[1]
             b = sid >> 3
             s = sid % 8
             if gv.sd['mo'][b] & (1 << (s - (s / 8) * 80)):
-                if first_master == -1:
-                    first_master = sid
-                last_master = sid
+                if first_main == -1:
+                    first_main = sid
+                last_main = sid
 
     with gv.rs_lock:
         for tries in station_list:
@@ -1141,13 +1141,13 @@ def schedule_stations(rsin, flags=5):
             b = sid >> 3
             s = sid % 8
             accumulate_time = max(accumulate_time, tries[0])
-            if first_master == sid:
+            if first_main == sid:
                 if gv.sd['mton'] < 0:
                     if accumulate_time - gv.now < -gv.sd['mton']:
                         accumulate_time += -gv.sd['mton'] - (accumulate_time - gv.now)
-                master_start = accumulate_time + gv.sd['mton']
-                master_stop = master_start + gv.sd['mtoff']
-                update_rs('active', masid, master_start, master_stop, rsin[sid][0])
+                main_start = accumulate_time + gv.sd['mton']
+                main_stop = main_start + gv.sd['mtoff']
+                update_rs('active', masid, main_start, main_stop, rsin[sid][0])
                 update_rs_order(masid)
 
             if seq:  # sequential mode, stations run one after another
@@ -1155,9 +1155,9 @@ def schedule_stations(rsin, flags=5):
                 accumulate_time += rsin[sid][1]  # add duration
                 if idx >= 0:
                     gv.rs[sid][idx]['rs_last_seq_sec'] = max(gv.rs[sid][idx]['rs_last_seq_sec'], gv.rs[sid][idx]['rs_stop_sec'])
-                if last_master == sid:
-                    master_stop = accumulate_time+gv.sd['mtoff']
-                    update_rs('active', masid, master_start, master_stop, rsin[sid][0])
+                if last_main == sid:
+                    main_stop = accumulate_time+gv.sd['mtoff']
+                    update_rs('active', masid, main_start, main_stop, rsin[sid][0])
                     update_rs_order(masid)
                 accumulate_time += gv.sd['sdt']  # add station delay
             else:  # concurrent mode, stations allowed to run in parallel
@@ -1167,9 +1167,9 @@ def schedule_stations(rsin, flags=5):
                     stop_time = accumulate_time
                     stop_time += 2*86400 if rsin[sid][1] == -1 else rsin[sid][1]
                     update_rs('active', sid, accumulate_time, stop_time, rsin[sid][0])
-                    if masid >= 0 and gv.sd['mo'][b] & (1<<(s - (s / 8) * 80)):  # Master settings
-                        master_stop = stop_time + gv.sd['mtoff']
-                        update_rs('active', masid, master_start, master_stop, rsin[sid][0])
+                    if masid >= 0 and gv.sd['mo'][b] & (1<<(s - (s / 8) * 80)):  # Main settings
+                        main_stop = stop_time + gv.sd['mtoff']
+                        update_rs('active', masid, main_start, main_stop, rsin[sid][0])
                         update_rs_order(masid)
                 elif (flags&8) == 8:
                     gv.logger.debug('ban with stop prog: ' + str(rsin[sid][0]) + ' dur: ' + to_relative_time(rsin[sid][1]) + ' sid: ' + str(sid+1))
@@ -1457,24 +1457,24 @@ def check_login(redirect=False):
 
         remote = web.ctx.env['REMOTE_ADDR']
         (ten,base,s0,s1) = split_ip(remote)
-        if gv.sd['slave']:
-            if remote == gv.sd['master_ip'] or remote == '127.0.0.1' or '10.1.128.' in remote:
-                gv.logger.debug('check_login for slave success from master_ip: ' + gv.sd['master_ip'])
+        if gv.sd['subordinate']:
+            if remote == gv.sd['main_ip'] or remote == '127.0.0.1' or '10.1.128.' in remote:
+                gv.logger.debug('check_login for subordinate success from main_ip: ' + gv.sd['main_ip'])
                 return True
             elif ten == '10' and s0 == '254' and s1 == '1' and int(base) > 1: # base radio
-                gv.logger.debug('check_login for slave success from proxy: ' + remote)
+                gv.logger.debug('check_login for subordinate success from proxy: ' + remote)
                 return True
 
-        if gv.sd['master']:
+        if gv.sd['main']:
             try:
                 for i in range(1, len(gv.plugin_data['su']['subinfo'])):
                     sub = gv.plugin_data['su']['subinfo'][i]
                     if remote == sub['ip']:
-                        gv.logger.debug('check login for master success from slave ip: ' + sub['ip'] + ' name: ' + sub['name'])
+                        gv.logger.debug('check login for main success from subordinate ip: ' + sub['ip'] + ' name: ' + sub['name'])
                         return True
 
             except Exception as ex:
-                gv.logger.info('check_login master exception remote: ' + remote + ' ex: ' + str(ex))
+                gv.logger.info('check_login main exception remote: ' + remote + ' ex: ' + str(ex))
 
         if web.config._session.user == 'admin':
             return True

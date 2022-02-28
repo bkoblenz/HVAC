@@ -1039,8 +1039,8 @@ class ETWeatherLevelChecker(Thread):
         while True:
             try:
                 self.status = ''
-                if gv.sd['slave'] and not gv.sd['master']:
-                    self._sleep(3600)  # not sure there is anything for a slave to do.  Master replies with adjustment to join
+                if gv.sd['subordinate'] and not gv.sd['main']:
+                    self._sleep(3600)  # not sure there is anything for a subordinate to do.  Main replies with adjustment to join
                 elif not gv.sd['etok']:
                     gv.sd['wl_et_weather'] = 100
                     jsave(gv.sd, 'sd')

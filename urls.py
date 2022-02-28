@@ -11,7 +11,7 @@ urls = [
 #    '/vs', 'webpages.view_stations',
 #    '/cs', 'webpages.change_stations',
 ##    '/csb', 'webpages.change_station_board',
-#    '/csm', 'webpages.change_station_master',
+#    '/csm', 'webpages.change_station_main',
 #    '/ars', 'webpages.add_radio_station',
 #    '/sn', 'webpages.get_set_station',
 #    '/vr', 'webpages.view_runonce',

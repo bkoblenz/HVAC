@@ -59,8 +59,8 @@ regs = {
     '0304': {'name':'SPI_Mode','reg':0x4,'bank':0x3,'span':1,'val':'0'},
     '0305': {'name':'SPI_Divisor','reg':0x5,'bank':0x3,'span':1,'val':'0'},
     '0306': {'name':'SPI_Options','reg':0x6,'bank':0x3,'span':1,'val':'0'},
-    '0307': {'name':'SPI_MasterCmdLen','reg':0x7,'bank':0x3,'span':1,'val':'0'},
-    '0308': {'name':'SPI_MasterCmdStr','reg':0x8,'bank':0x3,'span':32,'val':'0'},
+    '0307': {'name':'SPI_MainCmdLen','reg':0x7,'bank':0x3,'span':1,'val':'0'},
+    '0308': {'name':'SPI_MainCmdStr','reg':0x8,'bank':0x3,'span':32,'val':'0'},
     '0400': {'name':'ProtocolMode','reg':0x0,'bank':0x4,'span':1,'val':'0'},
     '0506': {'name':'ADC0','reg':0x6,'bank':0x5,'span':2,'val':'0'},
     '0508': {'name':'ADC1','reg':0x8,'bank':0x5,'span':2,'val':'0'},
@@ -840,7 +840,7 @@ class SerialRadio:
                         logger.debug('propagate network_prefix: ' + self.network_prefix)
                         addr = self.mac2addr[to_mac]['addr']
                         if 'usertag' not in self.addr2stuff[addr] or len(self.addr2stuff[addr]['usertag']) == 0:
-                            # only propagate to slaves that have a pi attached
+                            # only propagate to subordinates that have a pi attached
                             logger.debug('propagate network_prefix to addr: ' + addr)
                             self.remote_command_response('propagate network_prefix', 3, to_mac, self.cur_mac, self.network_prefix)
                         else:

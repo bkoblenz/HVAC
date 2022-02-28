@@ -49,7 +49,7 @@ base_dir = '/sys/bus/w1/devices/'
 device_folders = glob.glob(base_dir + '28*')
 device_files = []
 for df in device_folders:
-    device_files.append(df + '/w1_slave')
+    device_files.append(df + '/w1_subordinate')
 
 def read_temps_raw():
     lines = []

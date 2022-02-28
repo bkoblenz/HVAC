@@ -102,7 +102,7 @@ class sw_restart(ProtectedPage):
         return template_render.restarting()
 
 class sw_unreachable(ProtectedPage):
-    """Failed to reach slave."""
+    """Failed to reach subordinate."""
 
     def GET(self):
         return template_render.unreachable()
@@ -136,14 +136,14 @@ def get_ip_for_base():
 
 def get_ip_to_base():
     base_ip = '127.0.0.1'
-    if gv.sd['master_ip']:
-        if gv.sd['master_ip'].upper() != 'LOCALHOST':
-            if gv.sd['slave'] and not gv.sd['master']:
+    if gv.sd['main_ip']:
+        if gv.sd['main_ip'].upper() != 'LOCALHOST':
+            if gv.sd['subordinate'] and not gv.sd['main']:
                 base_ip = get_ip(gv.vpn_iface)
                 ten,base,s0,s1 = split_ip(base_ip)
                 base_ip = '10.1.128.' + s1
             else:
-                base_ip = gv.sd['master_ip']
+                base_ip = gv.sd['main_ip']
     gv.logger.debug('get_ip_to_base base_ip: ' + base_ip)
     return base_ip
 
@@ -159,7 +159,7 @@ def message_base(cmd, parameters={}):
         info = {'ip': radio_ip, 'port':gv.sd['htp'], 'name':gv.sd['name'], 'proxy':'', 'security':enc_name}
         info.update(parameters)
         urlcmd += '/supro?command='+cmd+'&parameters=' + urllib.quote_plus(json.dumps(info))
-    elif gv.sd['master_ip']:
+    elif gv.sd['main_ip']:
         wifi_ip = get_ip_to_base()
         wifi_port = gv.sd['htp']
         if wifi_ip == '127.0.0.1':
@@ -168,13 +168,13 @@ def message_base(cmd, parameters={}):
                 urlcmd += ':' + str(gv.sd['htp'])
         else:
             urlcmd = 'http://' + wifi_ip
-            if gv.sd['master_port'] != 0 and gv.sd['master_port'] != 80:
-                urlcmd += ':' + str(gv.sd['master_port'])
+            if gv.sd['main_port'] != 0 and gv.sd['main_port'] != 80:
+                urlcmd += ':' + str(gv.sd['main_port'])
         info = {'ip': get_ip_for_base(), 'port':wifi_port, 'name':gv.sd['name'], 'proxy':'', 'security':enc_name}
         info.update(parameters)
         urlcmd += '/'+cmd+'?data=' + urllib.quote_plus(json.dumps(info))
     else:
-        gv.logger.critical('No master for message_base.  radio_ip: ' + radio_ip + ' cmd: ' + cmd)
+        gv.logger.critical('No main for message_base.  radio_ip: ' + radio_ip + ' cmd: ' + cmd)
     try:
         gv.logger.debug('message_base trying command: ' + urlcmd)
         datas = urllib2.urlopen(urlcmd, timeout=gv.url_timeout+8)
@@ -182,7 +182,7 @@ def message_base(cmd, parameters={}):
         if cmd == 'suslj':
             gv.logger.info('suslj failed')
         gv.logger.info('timeout response.  urlcmd: ' + urlcmd)
-        raise IOError, 'UnreachableMaster'
+        raise IOError, 'UnreachableMain'
     except Exception as ex:
         gv.logger.info('Unexpected urllib2 error.  Exception ' + str(ex) + ' urlcmd: ' + urlcmd)
         raise IOError, 'UnexpectedResponse'
@@ -314,9 +314,9 @@ def load_and_save_remote(qdict, save_list, cmd, first_param_name, first_param):
     return subid, data
 
 def process_page_request(routine, qdict):
-    """ Return true and log if we directly process a request (as slave or non-forwarded master"""
+    """ Return true and log if we directly process a request (as subordinate or non-forwarded main"""
 
-    if not gv.sd['master'] or \
+    if not gv.sd['main'] or \
        ('substation' in qdict and int(qdict['substation']) == 0):
         more = 'empty' if 'substation' not in qdict else qdict['substation']
         gv.logger.debug(routine + ' - substation: ' + more)
@@ -367,7 +367,7 @@ class home(ProtectedPage):
                 subid, data = load_and_save_remote(qdict, ['sd', 'snames'], 'susldr', 'data', {'sd':1, 'snames':1, 'ps':1, 'programs':1, 'lrun':1})
                 return template_render.home(subid, data['snames'], data['sd'], data['ps'], data['programs'], data['lrun'])
             except Exception as ex:
-                gv.logger.info('home: No response from slave: ' +
+                gv.logger.info('home: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -412,7 +412,7 @@ class change_values(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'cv', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('change_values: No response from slave: ' +
+                gv.logger.info('change_values: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -501,7 +501,7 @@ class change_options(ProtectedPage):
                 update_upnp(cur_ip, gv.logger, [gv.sd['remote_support_port']])
             if 'oremote_support_port' in qdict and int(qdict['oremote_support_port']) != 0:
                 update_upnp(cur_ip, gv.logger, [], [[22, int(qdict['oremote_support_port'])]])
-            if gv.sd['master'] and 'external_proxy_port' in qdict and int(qdict['external_proxy_port']) != 0:
+            if gv.sd['main'] and 'external_proxy_port' in qdict and int(qdict['external_proxy_port']) != 0:
                 update_upnp(cur_ip, gv.logger, [], [[9081, int(qdict['external_proxy_port'])]])
 
         for f in ['wl', 'lr', 'etmin', 'etmax', 'ethistory', 'etforecast', 'remote_support_port']:
@@ -581,13 +581,13 @@ class view_stations(ProtectedPage):
                     data['remotesensboards'].remove('localhost')
                 return template_render.stations(subid, data['remotesensboards'], data['snames'], data['snotes'], data['sd'])
             except Exception as ex:
-                gv.logger.info('view_stations: No response from slave: ' +
+                gv.logger.info('view_stations: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
 
 class change_stations(ProtectedPage):
-    """Save changes to station names, ignore rain and master associations."""
+    """Save changes to station names, ignore rain and main associations."""
 
     def GET(self):
         qdict = web.input()
@@ -662,19 +662,19 @@ class change_stations(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'cs', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('change_stations: No response from slave: ' +
+                gv.logger.info('change_stations: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
         raise web.seeother('/')
 
-class change_station_master(ProtectedPage):
-    """Save changes to station master and reload stations page."""
+class change_station_main(ProtectedPage):
+    """Save changes to station main and reload stations page."""
 
     def GET(self):
         qdict = web.input()
         subid = 0 if 'substation' not in qdict else int(qdict['substation'])
-        if process_page_request('change_station_master', qdict) or subid == 0:
+        if process_page_request('change_station_main', qdict) or subid == 0:
             if 'omas' in qdict and gv.sd['mas'] != int(qdict['omas']):
                 gv.sd['mas'] = int(qdict['omas'])
                 jsave(gv.sd, 'sd')
@@ -685,7 +685,7 @@ class change_station_master(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'csm', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('change_station_master: No response from slave: ' +
+                gv.logger.info('change_station_main: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -707,7 +707,7 @@ class change_station_master(ProtectedPage):
 #            try:
 #                subid, data = load_and_save_remote(qdict, [], 'csb', 'substation', '0')
 #            except Exception as ex:
-#                gv.logger.info('change_station_board: No response from slave: ' +
+#                gv.logger.info('change_station_board: No response from subordinate: ' +
 #                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
 #                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
 #                raise web.seeother('/unreachable')
@@ -734,7 +734,7 @@ class add_radio_station(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ars', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('add_radio_station: No response from slave: ' +
+                gv.logger.info('add_radio_station: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -757,7 +757,7 @@ class get_set_station(ProtectedPage):
                 srvals = data['srvals']
                 got_data = True
             except Exception as ex:
-                gv.logger.info('get_set_status: No response from slave: ' +
+                gv.logger.info('get_set_status: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][int(qdict['substation'])]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][int(qdict['substation'])]['status'] = 'unreachable'
 
@@ -816,7 +816,7 @@ class view_runonce(ProtectedPage):
                 subid, data = load_and_save_remote(qdict, ['sd', 'snames'], 'susldr', 'data', {'sd':1, 'snames':1})
                 return template_render.runonce(subid, data['snames'], data['sd'])
             except Exception as ex:
-                gv.logger.info('view_runonce: No response from slave: ' +
+                gv.logger.info('view_runonce: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -852,7 +852,7 @@ class change_runonce(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'cr', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('change_runonce: No response from slave: ' +
+                gv.logger.info('change_runonce: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -875,7 +875,7 @@ class view_programs(ProtectedPage):
                 subid, data = load_and_save_remote(qdict, ['sd', 'programs', 'snames'], 'susldr', 'data', {'sd':1, 'snames':1, 'programs':1})
                 return template_render.programs(subid, data['snames'], data['sd'], data['programs'], gv.now)
             except Exception as ex:
-                gv.logger.info('view_programs: No response from slave: ' +
+                gv.logger.info('view_programs: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1016,7 +1016,7 @@ class change_program(ProtectedPage):
                         cp[gv.p_day_mask] = (ref % cp[gv.p_interval_day]) + 128
                     temporary_program = cp
             except Exception as ex:
-                gv.logger.info('change_program: No response from slave: ' +
+                gv.logger.info('change_program: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1068,7 +1068,7 @@ class delete_program(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'dp', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('delete_program: No response from slave: ' +
+                gv.logger.info('delete_program: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1094,7 +1094,7 @@ class enable_program(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ep', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('enable_program: No response from slave: ' +
+                gv.logger.info('enable_program: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1119,7 +1119,7 @@ class view_log(ProtectedPage):
                 subid, data = load_and_save_remote(qdict, ['sd', 'snames', 'wlog', 'elog'], 'susldr', 'data', {'sd':1, 'snames':1, 'wlog':1, 'elog':1, 'end_date':'', 'days_before':0})
                 return template_render.log(subid, data['snames'], data['sd'], data['wlog'], data['elog'])
             except Exception as ex:
-                gv.logger.info('view_log: No response from slave: ' +
+                gv.logger.info('view_log: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1142,7 +1142,7 @@ class clear_log(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'cl', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('clear_log: No response from slave: ' +
+                gv.logger.info('clear_log: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1214,7 +1214,7 @@ class truncate_log(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'tl', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('truncate_log: No response from slave: ' +
+                gv.logger.info('truncate_log: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1248,7 +1248,7 @@ class debug_log(ProtectedPage):
                 records = data['dlog'+kind]
                 filename = 'dlog-' + kind + '-' + gv.plugin_data['su']['subinfo'][subid]['name']
             except Exception as ex:
-                gv.logger.info('debug_log: No response from slave: ' +
+                gv.logger.info('debug_log: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1270,13 +1270,13 @@ class save_configuration(ProtectedPage):
         configd = {}
         for fname in datal:
             configd[fname] = 1
-        records = {'Irricloud Master Station':{}}
+        records = {'Irricloud Main Station':{}}
         try:
             for fname in datal:
                 with open('./data/' + fname + '.json', 'r') as file:
-                    records['Irricloud Master Station'][fname] = json.load(file)
-            records['Irricloud Master Station']['sd']['tepassword'] = '' # remove gmail password
-            gv.logger.info('save_configuration saving master station ' + gv.sd['name'])
+                    records['Irricloud Main Station'][fname] = json.load(file)
+            records['Irricloud Main Station']['sd']['tepassword'] = '' # remove gmail password
+            gv.logger.info('save_configuration saving main station ' + gv.sd['name'])
             for subid in range(1,len(gv.plugin_data['su']['subinfo'])):
                 name = gv.plugin_data['su']['subinfo'][subid]['name']
                 if name == gv.sd['name']:  # do not save ourselves as a substation
@@ -1320,7 +1320,7 @@ class restore_configuration(ProtectedPage):
         substation_map = {}
         unreachable_substations = []
         for sub in records:
-            if sub == 'Irricloud Master Station':
+            if sub == 'Irricloud Main Station':
                 continue
             if sub_name == '' or (sub_name == sub and sub != gv.sd['name']):
                 unreachable_substations.append(sub)
@@ -1336,7 +1336,7 @@ class restore_configuration(ProtectedPage):
       
         if sub_name != '':
             if sub_name == gv.sd['name']:
-                sub_name = 'Irricloud Master Station'
+                sub_name = 'Irricloud Main Station'
             elif sub_name not in substation_map:
                 gv.logger.info('restore_configuration could not find sub_name: ' + sub_name + ' to restore')
                 raise web.seeother('unreachable')
@@ -1348,9 +1348,9 @@ class restore_configuration(ProtectedPage):
         for sub in records:
             if sub_name != '' and sub_name != sub: # only restore sub_name if present
                 continue
-            if sub == 'Irricloud Master Station':
+            if sub == 'Irricloud Main Station':
                 for fname in datal:
-                    rm = records['Irricloud Master Station']
+                    rm = records['Irricloud Main Station']
                     if fname == 'sd':
                         gv.sd = rm[fname]
                         update_hostname(gv.sd['name'])
@@ -1368,8 +1368,8 @@ class restore_configuration(ProtectedPage):
                     else:
                         gv.logger.critical('unexpected configuration file to restore: ' + fname)
                     jsave(rm[fname], fname)
-                    gv.logger.info('restore_configuration restored master ' + fname)
-                gv.logger.info('restore_configuration master restoration complete.')
+                    gv.logger.info('restore_configuration restored main ' + fname)
+                gv.logger.info('restore_configuration main restoration complete.')
             else:
                 subid = substation_map[sub]
                 configd = {}
@@ -1385,10 +1385,10 @@ class restore_configuration(ProtectedPage):
                             gv.logger.critical('restore_configuration failed to restore ' + fname + ' on substation ' + sub)
                     gv.logger.info('restore_configuration restored substation ' + sub)
                 except Exception as ex:
-                    gv.logger.critical('restore_configuration: No response from slave: ' + sub + ' Exception: ' + str(ex))
+                    gv.logger.critical('restore_configuration: No response from subordinate: ' + sub + ' Exception: ' + str(ex))
                     raise web.seeother('/unreachable')
 
-        if sub_name == '' or sub_name == 'Irricloud Master Station':
+        if sub_name == '' or sub_name == 'Irricloud Main Station':
             gv.logger.info('restore_configuration restoration complete...rebooting')
             reboot(3)
             raise web.seeother('/reboot')
@@ -1471,7 +1471,7 @@ class run_now(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'rp', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('run_now: No response from slave: ' +
+                gv.logger.info('run_now: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
                 raise web.seeother('/unreachable')
@@ -1509,7 +1509,7 @@ class api_status(ProtectedPage):
                 sbits = data['sbits']
                 got_data = True
             except Exception as ex:
-                gv.logger.info('api_status: No response from slave: ' +
+                gv.logger.info('api_status: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][int(qdict['substation'])]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][int(qdict['substation'])]['status'] = 'unreachable'
 
@@ -1527,7 +1527,7 @@ class api_status(ProtectedPage):
                 sn = sid + 1
                 sbit = (sbits[bid] >> s) & 1
                 irbit = (sd['ir'][bid] >> s) & 1
-                status = {'station': sid, 'status': 'disabled', 'reason': '', 'master': 0, 'programName': '',
+                status = {'station': sid, 'status': 'disabled', 'reason': '', 'main': 0, 'programName': '',
                           'remaining': 0}
                 if sd['en'] == 1:
                     if sbit:
@@ -1538,8 +1538,8 @@ class api_status(ProtectedPage):
                         if sd['urs'] != 0 and sd['rs'] != 0:
                             status['reason'] = 'rain_sensed'
                     if sn == sd['mas']:
-                        status['master'] = 1
-                        status['reason'] = 'master'
+                        status['main'] = 1
+                        status['reason'] = 'main'
                     else:
                         rem = ps[sid][1]
                         if rem > 65536 and rem < 86400:
@@ -1595,7 +1595,7 @@ class api_log(ProtectedPage):
                 records = data['wlog']
                 got_data = True
             except Exception as ex:
-                gv.logger.info('api_log: No response from slave: ' +
+                gv.logger.info('api_log: No response from subordinate: ' +
                                gv.plugin_data['su']['subinfo'][int(qdict['substation'])]['name'] + ' Exception: ' + str(ex))
                 gv.plugin_data['su']['subinfo'][int(qdict['substation'])]['status'] = 'unreachable'
 

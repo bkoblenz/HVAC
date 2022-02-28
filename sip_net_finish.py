@@ -109,14 +109,14 @@ class SubConfig(WebPage):
         except:
             pass
 
-        form_args = (web.form.Checkbox('Master Station', checked=gv.sd['master']==1), )
-        form_args += (web.form.Checkbox('Substation', checked=gv.sd['slave']==1), )
+        form_args = (web.form.Checkbox('Main Station', checked=gv.sd['main']==1), )
+        form_args += (web.form.Checkbox('Substation', checked=gv.sd['subordinate']==1), )
         form_args += (web.form.Checkbox('Enable Remote Substations', checked=gv.sd['subnet_only_substations']==0), )
         if have_radio:
             form_args += (web.form.Checkbox('Radio Only Substation', checked=False), )
             form_args += (web.form.Textbox('Radio Only Substation Name'), )
         form_args += (web.form.Textbox('System Network Name', web.form.notnull, value=gv.sd['substation_network']), )
-        form_args += (web.form.Textbox('Master IP', value=gv.sd['master_ip']), )
+        form_args += (web.form.Textbox('Main IP', value=gv.sd['main_ip']), )
 
         if have_radio:
             form_args += (web.form.Textbox('Radio Power', web.form.notnull, web.form.Validator('Must be between 0..4 (inclusive)', lambda x:int(x)>=0 and int(x) <= 5), value=2), )
@@ -129,17 +129,17 @@ class SubConfig(WebPage):
             messages.append(error_msg)
             messages.append('')
             messages.append('')
-        messages.append('Select if this is a master station or substation (or both).  Typical configurations have both boxes checked.')
+        messages.append('Select if this is a main station or substation (or both).  Typical configurations have both boxes checked.')
         messages.append('')
-        messages.append('Select "Enable Remote Substations" if you want a master station to have substations that are on a different subnet.  Both the master station and any substation that is on a different subnet should have this box checked.  Typical configurations leave this box unchecked.')
+        messages.append('Select "Enable Remote Substations" if you want a main station to have substations that are on a different subnet.  Both the main station and any substation that is on a different subnet should have this box checked.  Typical configurations leave this box unchecked.')
         messages.append('')
-        messages.append('If a wifi enabled substation can directly reach the master station, then Master IP must be filled in and correspond to the network address that this substation will use to reach the master station.')
+        messages.append('If a wifi enabled substation can directly reach the main station, then Main IP must be filled in and correspond to the network address that this substation will use to reach the main station.')
         messages.append('')
         messages.append('"System Network Name" should refer to a unique name for the entire system that will separate it from any neighboring systems.')
         messages.append('')
         if have_radio:
-            messages.append('Non-wifi based radio substations should set "Master IP" as blank.')
-            messages.append('Wifi based substations that use a radio to reach remote zones should still have "Master IP" pointing to the master station.')
+            messages.append('Non-wifi based radio substations should set "Main IP" as blank.')
+            messages.append('Wifi based substations that use a radio to reach remote zones should still have "Main IP" pointing to the main station.')
             messages.append('')
             messages.append('Configuring a radio for remote sensor and/or valve control should check "Radio Only Substation".  Otherwise that field should not be checked.')
             messages.append('A radio for remote sensor and/or valve control should have a unique (between 1 and 12) character name in "Radio Only Substation Name".')
@@ -164,18 +164,18 @@ class SubConfig(WebPage):
         form = web.input()
         continuation = '/cn'
         try:
-            gv.sd['master'] = 1 if 'Master Station' in form else 0
-            gv.sd['slave'] = 1 if 'Substation' in form else 0
+            gv.sd['main'] = 1 if 'Main Station' in form else 0
+            gv.sd['subordinate'] = 1 if 'Substation' in form else 0
             gv.sd['subnet_only_substations'] = 0 if 'Enable Remote Substations' in form else 1
-            if not gv.sd['master'] and not gv.sd['slave'] and 'Radio Only Substation' not in form:
-                error_msg = 'At least one of "Master Substation" or "Substation" must be checked.'
+            if not gv.sd['main'] and not gv.sd['subordinate'] and 'Radio Only Substation' not in form:
+                error_msg = 'At least one of "Main Substation" or "Substation" must be checked.'
                 raise web.seeother('/su') # back to form
 
-            for f in ['Master IP', 'Master Port', 'System Network Name', 'Radio Power', 'Radio Network Name', 'Radio Router Number', 'Radio Only Substation Name']:
+            for f in ['Main IP', 'Main Port', 'System Network Name', 'Radio Power', 'Radio Network Name', 'Radio Router Number', 'Radio Only Substation Name']:
                 if f in form:
                     form[f] = form[f].strip()
 
-            gv.sd['master_ip'] = form['Master IP']
+            gv.sd['main_ip'] = form['Main IP']
             gv.sd['substation_network'] = form['System Network Name']
             if 'Radio Power' in form:
                 try:
@@ -197,7 +197,7 @@ class SubConfig(WebPage):
                 else:
                     cmd = ['python', 'substation_proxy.py', '--onetime', '--power='+str(power)]
                 router_id = 255
-                type = 'base' if gv.sd['master_ip'] else 'remote'
+                type = 'base' if gv.sd['main_ip'] else 'remote'
                 self.logger.info('initial radio type: ' + type)
                 if len(form['Radio Router Number']) > 0 and form['Radio Router Number'] != '0':
                     try:
@@ -313,7 +313,7 @@ class NetConfig(web.application):
         form_args += (web.form.Textbox('Station Name', web.form.notnull, value=gv.sd['name']), )
         form_args += (web.form.Textbox('Station Port', web.form.Validator('Must not be 9080', lambda x:int(x)!=9080), value=gv.sd['htp']), )
 
-        if gv.sd['master']:
+        if gv.sd['main']:
             messages.append('If you would like to export the web interface to the outside world with automatic port forwarding via UPnP, then provide a non-zero "External Station Port" and check "Enable UPnP".')
             messages.append('The "UPnP Refresh Rate" is the number of minutes between updates of the UPnP mappings.  Setting this to 0 will update mappings only upon changes to IP addresses.')
             messages.append('')
@@ -324,7 +324,7 @@ class NetConfig(web.application):
             form_args += (web.form.Textbox('External Station Port', value="0"), )
 
         if not gv.sd['subnet_only_substations']:
-            messages.append('"Remote Substation Access Port" will be used by substations on a different subnet than the master station to reach the master station.  The value used for the master station and the relevant substations must all be the same.  A value between 10000 and 20000 typically works well.')
+            messages.append('"Remote Substation Access Port" will be used by substations on a different subnet than the main station to reach the main station.  The value used for the main station and the relevant substations must all be the same.  A value between 10000 and 20000 typically works well.')
             messages.append('')
             form_args += (web.form.Textbox('Remote Substation Access Port', value=gv.sd['external_proxy_port']), )
 
@@ -558,11 +558,11 @@ class NetConfig(web.application):
                     update_hostname(gv.sd['name'])
                 if 'Station Port' in form:
                     gv.sd['htp'] = int(form['Station Port'])
-                if gv.sd['master']:
-                    gv.sd['master_ip'] = 'localhost' # update local master_port 
-                    gv.sd['master_port'] == gv.sd['htp']
+                if gv.sd['main']:
+                    gv.sd['main_ip'] = 'localhost' # update local main_port 
+                    gv.sd['main_port'] == gv.sd['htp']
                 else:
-                    gv.sd['master_port'] = 0
+                    gv.sd['main_port'] = 0
                 gv.sd['external_htp'] = int(form['External Station Port']) if 'External Station Port' in form else 0
                 gv.sd['external_proxy_port'] = int(form['Remote Substation Access Port']) if 'Remote Substation Access Port' in form else 0
                 jsave(gv.sd, 'sd')
