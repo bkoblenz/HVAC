@@ -630,6 +630,7 @@ def timing_loop():
                 if gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
                     log_event('zone call on; enable boiler')
                     set_boiler_mode('heating')
+                    sustained_gap = int(time.time())
             else: # was on, now off
                 msg_start = 'zone call off; '
                 gv.srvals[circ_pump] = 0
