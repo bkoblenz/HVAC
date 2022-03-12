@@ -446,7 +446,7 @@ def timing_loop():
                 if not tzc:
                     gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat')
             else:
-                sustained_gap = int(time.time())
+                sustained_cold = int(time.time())
             update_radio_present()
             max_bd = -1
             boards = i2c.get_vsb_boards()
@@ -605,6 +605,7 @@ def timing_loop():
 
         #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
         if zc != last_zc: # change in zone call
+            sustained_cold = int(time.time())
             if gv.sd['mode'] == 'None':
                 zc = last_zc # dont do anything in terms of moving water
             elif last_zc == 0: # was off, now on?
@@ -630,7 +631,6 @@ def timing_loop():
                 if gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
                     log_event('zone call on; enable boiler')
                     set_boiler_mode('heating')
-                    sustained_gap = int(time.time())
             else: # was on, now off
                 msg_start = 'zone call off; '
                 gv.srvals[circ_pump] = 0
