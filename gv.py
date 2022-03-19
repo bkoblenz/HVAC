@@ -141,6 +141,7 @@ sd = {
     u"thermostats": [],
     u"cold_gap_time": 60,
     u"cold_gap_temp": 2.5,
+    u"low_supply_time": 15,
 }
 
 for i in range(5):
@@ -227,6 +228,7 @@ options += \
     [_("24-hour clock"), "boolean", "tf", _("Display times in 24 hour format (as opposed to AM/PM style.)"), _("System")], \
     [_("Mode"), "list", "mode", _("Heating or cooling mode."), _("System")], \
     [_("Boiler Supply Temp (degrees F)"), "float", "boiler_supply_temp", _("Water supply temperature below which boiler will turn on."), _("System")], \
+    [_("Boiler Supply Time"), "int", "low_supply_time", _("Minutes when temperature is below Boiler Supply Temp target to enable boiler."), _("System")], \
     [_("Cold Gap Temp (degrees F)"), "float", "cold_gap_temp", _("Degrees below target temperature when considered cold."), _("System")], \
     [_("Cold Gap Time"), "int", "cold_gap_time", _("Minutes when temperature is Cold Gap degrees below target to enable boiler."), _("System")], \
     [_("Max Dewpoint (degrees C)"), "float", "max_dewpoint", _("Limit dewpoint to this value."), _("System")], \

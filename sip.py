@@ -663,7 +663,7 @@ def timing_loop():
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
                 switch_to_boiler = False
                 if ave_supply_temp < boiler_supply_crossover:
-                    if low_supply_count <= 750: # about 12.5 mins.
+                    if low_supply_count <= gv.sd['low_supply_time']:
                         # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
                         if low_supply_count % 150 == 0:
                             log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
