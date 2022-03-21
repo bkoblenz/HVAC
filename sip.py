@@ -352,14 +352,16 @@ def read_sensor_value(name):
                 #gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
                 if gv.sd['mode'] in ['Heatpump Cooling']:
                     if data['tmode'] in [2,3] and data['temp'] > data['t_cool']:
-                        zc = 1
+                        #zc = 1
+                        zc = max(zc, min(1, int(data['tstate']))) # use thermostats notion of call fr cool (data['tstate'] == 2 for cooling)
                         local_gap = data['temp']-data['t_cool'] # degrees F
                         max_gap = max(max_gap, local_gap)
                     elif zc == None:
                         zc = 0
                 elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Heatpump then Boiler']:
                     if data['tmode'] in [1,3] and data['temp'] < data['t_heat']: 
-                        zc = 1
+                        #zc = 1
+                        zc = max(zc, int(data['tstate'])) # use thermostats notion of call fr heat (data['tstate'] == 1 for heating)
                         local_gap = data['t_heat']-data['temp'] # degrees F
                         max_gap = max(max_gap, local_gap)
                         gv.logger.info('ip: ' + ip + ' temp: ' + str(data['temp']) + ' target: ' + str(data['t_heat']) + ' gap: ' + str(max_gap) + ' localgap: ' + str(local_gap))
@@ -667,25 +669,23 @@ def timing_loop():
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
                 switch_to_boiler = False
                 if ave_supply_temp < boiler_supply_crossover:
-                    if low_supply_count <= gv.sd['low_supply_time']*60:
-                        # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
-                        if low_supply_count % 150 == 0:
-                            trend = 'Neutral'
-                            if low_supply_count != 0:
-                                if last_ave_supply_temp > ave_supply_temp:
-                                    trend = 'Decreasing'
-                                elif last_ave_supply_temp < ave_supply_temp:
-                                    trend = 'Increasing'
-                            last_ave_supply_temp = ave_supply_temp
-                            log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' trend: ' + trend)
-                            
-                        low_supply_count += 1
-                    else:
-                        switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
+                    # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
+                    if low_supply_count % 150 == 0:
+                        trend = 'Neutral'
+                        if low_supply_count != 0:
+                            if last_ave_supply_temp > ave_supply_temp:
+                                trend = 'Decreasing'
+                            elif last_ave_supply_temp < ave_supply_temp:
+                                trend = 'Increasing'
+                        last_ave_supply_temp = ave_supply_temp
+                        log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' trend: ' + trend)
+                    low_supply_count += 1
+                    if low_supply_count > gv.sd['low_supply_time']*60: # try to hold off boiler if heatpump water getting warmer
+                        switch_to_boiler = trend != 'Increasing' and gv.sd['mode'] == 'Heatpump then Boiler'
                 else:
                     low_supply_count = 0
-                    if int(time.time()) - sustained_cold > gv.sd['cold_gap_time']*60:
-                        switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
+                if int(time.time()) - sustained_cold > gv.sd['cold_gap_time']*60:
+                    switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
                 if switch_to_boiler and boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and gv.now-last_heatpump_on > 3*60:
                     log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' coldgap: ' + str(int(time.time())-sustained_cold))
                     # Use only boiler for a while
