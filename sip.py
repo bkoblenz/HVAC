@@ -357,7 +357,7 @@ def read_sensor_value(name):
                         max_gap = max(max_gap, local_gap)
                     elif zc == None:
                         zc = 0
-                elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
+                elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Heatpump then Boiler']:
                     if data['tmode'] in [1,3] and data['temp'] < data['t_heat']: 
                         zc = 1
                         local_gap = data['t_heat']-data['temp'] # degrees F
@@ -443,8 +443,12 @@ def timing_loop():
                     sustained_cold = int(time.time()) # reset as we are close enough
                 #gv.logger.info('max_gap: ' + str(max_gap) + ' for: ' + str(int(time.time())-sustained_cold) + ' seconds')
                 tzc = read_sensor_value('zone_call')
-                if not tzc:
-                    gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat')
+                if not tzc: # small gap (.5F) may lead to no call for heat from thermostat (so zone pump will not run), so ignore implied call for heat
+                    if True:
+                        gv.logger.warning('Zone_call_thermostat set and does not match zone_call sensor...NOT using zone_call_thermostat gap: ' + "{0:.2f}".format(max_gap))
+                        zct = False # let sustained cold persist?
+                    else:
+                        gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat gap: ' + "{0:.2f}".format(max_gap))
             else:
                 sustained_cold = int(time.time())
             update_radio_present()
@@ -628,7 +632,7 @@ def timing_loop():
                     else:
                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
  
-                if gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump']:
+                if gv.sd['mode'] == 'Boiler Only':
                     log_event('zone call on; enable boiler')
                     set_boiler_mode('heating')
             else: # was on, now off
@@ -636,11 +640,11 @@ def timing_loop():
                 gv.srvals[circ_pump] = 0
                 set_output()
                 if boiler_md == 'heating' and \
-                        gv.sd['mode'] in ['Boiler Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
+                        gv.sd['mode'] in ['Boiler Only', 'Heatpump then Boiler']:
                     msg_start += 'disable boiler; '
                     set_boiler_mode('none')
                 if heatpump_md == 'heating' and \
-                        gv.sd['mode'] in ['Boiler and Heatpump', 'Heatpump then Boiler', 'Heatpump Only']:
+                        gv.sd['mode'] in ['Heatpump then Boiler', 'Heatpump Only']:
                     msg_start += 'disable heatpump; '
                     set_heatpump_mode('none')
                 if heatpump_md == 'cooling' and gv.sd['mode'] == 'Heatpump Cooling':
@@ -650,7 +654,7 @@ def timing_loop():
         elif zc == 1: # still on?
             if len(supply_temp_readings) < 5 or len(return_temp_readings) < 5:
                 continue
-            if gv.sd['mode'] in ['Heatpump Only', 'Boiler and Heatpump', 'Heatpump then Boiler']:
+            if gv.sd['mode'] in ['Heatpump Only', 'Heatpump then Boiler']:
                 if ave_supply_temp < heatpump_setpoint_h-8:
                     if heatpump_md == 'none' and gv.now-last_heatpump_off > 3*60:
 #                        log_event('reenable heatpump; supply: ' + str(ave_supply_temp))
@@ -659,21 +663,29 @@ def timing_loop():
                     if heatpump_md == 'heating' and gv.now-last_heatpump_on > 3*60:
 #                        log_event('disable heatpump; supply: ' + str(ave_supply_temp))
                         set_heatpump_mode('none')
-            if gv.sd['mode'] == 'Heatpump then Boiler':
+            if gv.sd['mode'] in ['Heatpump then Boiler', 'Heatpump Only']:
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
                 switch_to_boiler = False
                 if ave_supply_temp < boiler_supply_crossover:
                     if low_supply_count <= gv.sd['low_supply_time']*60:
                         # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
                         if low_supply_count % 150 == 0:
-                            log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp))
+                            trend = 'Neutral'
+                            if low_supply_count != 0:
+                                if last_ave_supply_temp > ave_supply_temp:
+                                    trend = 'Decreasing'
+                                elif last_ave_supply_temp < ave_supply_temp:
+                                    trend = 'Increasing'
+                            last_ave_supply_temp = ave_supply_temp
+                            log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' trend: ' + trend)
+                            
                         low_supply_count += 1
                     else:
-                        switch_to_boiler = True
+                        switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
                 else:
                     low_supply_count = 0
                     if int(time.time()) - sustained_cold > gv.sd['cold_gap_time']*60:
-                        switch_to_boiler = True
+                        switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
                 if switch_to_boiler and boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and gv.now-last_heatpump_on > 3*60:
                     log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' coldgap: ' + str(int(time.time())-sustained_cold))
                     # Use only boiler for a while
