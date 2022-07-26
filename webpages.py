@@ -70,10 +70,12 @@ class login(WebPage):
         my_signin = signin_form()
         if not my_signin.validates():
             gv.logger.info('login failed')
+            gv.plugin_data['te']['tesender'].try_mail('Login', 'Failure')
             return template_render.login(my_signin)
         else:
             gv.logger.info('login succeeded')
             web.config._session.user = 'admin'
+            gv.plugin_data['te']['tesender'].try_mail('Login', 'Success')
             report_login()
             raise web.seeother('/')
 
