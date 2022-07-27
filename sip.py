@@ -388,7 +388,6 @@ def read_temps():
 def timing_loop():
     """ ***** Main timing algorithm. Runs in a separate thread.***** """
     last_min = 0
-    zc = 0
     supply_temp_readings = []
     return_temp_readings = []
 #    last_mode = gv.sd['mode']
@@ -428,6 +427,8 @@ def timing_loop():
 
     set_output()
     zct = 0
+    zc = 0
+    last_zc = 0
     sustained_cold = int(time.time())
     while True:  # infinite loop
       try:
@@ -447,10 +448,12 @@ def timing_loop():
                 tzc = read_sensor_value('zone_call')
                 if not tzc: # small gap (.5F) may lead to no call for heat from thermostat (so zone pump will not run), so ignore implied call for heat
                     if True:
-                        gv.logger.warning('Zone_call_thermostat set and does not match zone_call sensor...NOT using zone_call_thermostat gap: ' + "{0:.2f}".format(max_gap))
-                        zct = False # let sustained cold persist?
-                    else:
-                        gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat gap: ' + "{0:.2f}".format(max_gap))
+                        gv.logger.warning('Zone_call_thermostat set and does not match zone_call sensor...using ON gap: ' + "{0:.2f}".format(max_gap))
+                    #if False:
+                    #    gv.logger.warning('Zone_call_thermostat set and does not match zone_call sensor...NOT using zone_call_thermostat gap: ' + "{0:.2f}".format(max_gap))
+                    #    zct = False # let sustained cold persist?
+                    #else:
+                    #    gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat gap: ' + "{0:.2f}".format(max_gap))
             else:
                 sustained_cold = int(time.time())
             update_radio_present()
@@ -701,10 +704,10 @@ def timing_loop():
                     sustained_cold = int(time.time())
                     insert_action(gv.now+(extra_min+59)*60, {'what':'set_boiler_mode', 'mode':'none'})
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
-                 dewpoint_margin = 1.5
-                 target = max(dew+dewpoint_margin+1, 10.)
+                 dewpoint_margin = 1.
+                 target = max(dew+dewpoint_margin, 6.)
                  adjust = 0
-                 if ave_supply_temp >= 20:
+                 if ave_supply_temp >= 19:
                     failed_cold_supply += 1
                     if failed_cold_supply == 300:
                         log_event('COLD SUPPLY WATER FAILURE')
