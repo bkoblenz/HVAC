@@ -236,6 +236,7 @@ options += \
     [_("Thermostat IPs"), "bigstring", "therm_ips", _("Comma separated IP addresses of radiothermostat.com devices."), _("System")],
 
 if sd['enable_upnp']:
+    options += [_("Port forwarded http port"), "int", "external_htp", _("Visible external port that is forwarded for remote http access."), _("System")],
     options += [_("Remote support"), "int", "remote_support_port", _("Enable remote ssh access for support."), _("System")],
 
 options += \
