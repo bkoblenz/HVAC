@@ -335,7 +335,8 @@ max_cooling_adjustments = 150
 min_cooling_adjustments = -max_cooling_adjustments
 cooling_adjust_per_degree = 2.5
 
-def read_sensor_value(name):
+thermostat_fails = {}
+def read_sensor_value(name, logit=False):
     if 'ld' not in gv.plugin_data:
         return None
     for s in gv.plugin_data['ld']:
@@ -349,7 +350,9 @@ def read_sensor_value(name):
             cmd = 'http://' + ip + '/tstat'
             try:
                 data = json.loads(urlopen(cmd, timeout=5).read().decode('utf-8'))
-                #gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
+                thermostat_fails[ip] = 0
+                if logit:
+                    gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
                 if gv.sd['mode'] in ['Heatpump Cooling']:
                     if data['tmode'] in [2,3] and data['temp'] > data['t_cool']:
                         #zc = 1
@@ -368,6 +371,17 @@ def read_sensor_value(name):
                     elif zc == None:
                         zc = 0
             except Exception as ex:
+                gv.logger.warning('thermostat: ' + ip + ' exception: ' + str(ex))
+                try:
+                    if thermostat_fails[ip] > 5:
+                        log_event('Thermostat failure ' + ip + ' ex: ' + str(ex))
+                        thermostat_fails[ip] = 0
+                        try:
+                            gv.plugin_data['te']['tesender'].try_mail('Thermostat', 'Thermostat failure')
+                        except:
+                            pass
+                except:
+                    thermostat_fails[ip] = 1
                 pass
 
         if zc == None:
@@ -440,7 +454,7 @@ def timing_loop():
             print 'timing'
             boiler_supply_crossover = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
-            zct, max_gap = read_sensor_value('zone_call_thermostats')
+            zct, max_gap = read_sensor_value('zone_call_thermostats', last_min % 5 == 0)
             if zct:
                 if max_gap <= gv.sd['cold_gap_temp']:
                     sustained_cold = int(time.time()) # reset as we are close enough
@@ -702,7 +716,7 @@ def timing_loop():
                     set_heatpump_mode('none')
                     set_boiler_mode('heating')
                     sustained_cold = int(time.time())
-                    insert_action(gv.now+(extra_min+59)*60, {'what':'set_boiler_mode', 'mode':'none'})
+                    insert_action(gv.now+(extra_min+40)*60, {'what':'set_boiler_mode', 'mode':'none'}) # used to be 59
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
                  dewpoint_margin = 1.
                  target = max(dew+dewpoint_margin, 6.)

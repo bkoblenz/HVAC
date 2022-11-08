@@ -29,7 +29,7 @@ web.config.session_parameters = utils.storage({
     'cookie_name': 'webpy_session_id',
     'cookie_domain': None,
     'cookie_path' : None,
-    'timeout': 86400, #24 * 60 * 60, # 24 hours in seconds
+    'timeout': 7 * 24 * 60 * 60, # one week in seconds
     'ignore_expiry': True,
     'ignore_change_ip': True,
     'secret_key': 'fLjUfxqXtfNoIldA0A0J',

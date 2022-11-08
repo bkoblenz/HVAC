@@ -1489,7 +1489,7 @@ def check_login(redirect=False):
             raise web.unauthorized()
         return False
     else:
-        gv.logger.info('check login failed from remote: ' + remote + ' for system: ' + gv.sd['name'])
+        gv.logger.info('check login failed from remote: ' + remote + ' for system: ' + gv.sd['name'] + ' qdict: ' + str(qdict) + ' env: ' + str(web.ctx.env))
 
     if redirect:
         raise web.seeother('/login')
