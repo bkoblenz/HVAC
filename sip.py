@@ -383,6 +383,7 @@ def read_sensor_value(name, recurse=0, logit=False):
                 except:
                     thermostat_fails[ip] = 1
                 if recurse <= 5: # reread in case this thermostat is the one one calling for heat and we dont want to reset cold_gap
+                    time.sleep(3)
                     return read_sensor_value(name, recurse+1, logit)
 
         if logit:
