@@ -336,7 +336,7 @@ min_cooling_adjustments = -max_cooling_adjustments
 cooling_adjust_per_degree = 2.5
 
 thermostat_fails = {}
-def read_sensor_value(name, logit=False):
+def read_sensor_value(name, recurse=0, logit=False):
     if 'ld' not in gv.plugin_data:
         return None
     for s in gv.plugin_data['ld']:
@@ -382,8 +382,11 @@ def read_sensor_value(name, logit=False):
                             pass
                 except:
                     thermostat_fails[ip] = 1
-                pass
+                if recurse <= 5: # reread in case this thermostat is the one one calling for heat and we dont want to reset cold_gap
+                    return read_sensor_value(name, recurse+1, logit)
 
+        if logit:
+            gv.logger.info(name + ' zc: ' + str(zc) + ' max_gap: ' + str(max_gap))
         if zc == None:
             gv.logger.warning('read_sensor_value failed to get thermostat data from ANY thermostat: ' + str(gv.sd['thermostats']))
         return zc, max_gap
@@ -454,7 +457,7 @@ def timing_loop():
             print 'timing'
             boiler_supply_crossover = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
-            zct, max_gap = read_sensor_value('zone_call_thermostats', last_min % 5 == 0)
+            zct, max_gap = read_sensor_value('zone_call_thermostats', 0, last_min % 5 == 0)
             if zct:
                 if max_gap <= gv.sd['cold_gap_temp']:
                     sustained_cold = int(time.time()) # reset as we are close enough
@@ -537,6 +540,10 @@ def timing_loop():
         last_zc = zc
         zc = read_sensor_value('zone_call')
         if zct and not zc:
+            if gv.now % 60 == 0:
+                gv.logger.info('timing_loop ignoring physical zone_call')
+            zc = zct
+        elif zct != None and not zct and zc:
             zc = zct
         if zc == None:
             zc = last_zc
@@ -716,7 +723,8 @@ def timing_loop():
                     set_heatpump_mode('none')
                     set_boiler_mode('heating')
                     sustained_cold = int(time.time())
-                    insert_action(gv.now+(extra_min+40)*60, {'what':'set_boiler_mode', 'mode':'none'}) # used to be 59
+                    # try leaving boiler on until we come to temp
+                    #insert_action(gv.now+(extra_min+40)*60, {'what':'set_boiler_mode', 'mode':'none'}) # used to be 59
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
                  dewpoint_margin = 1.
                  target = max(dew+dewpoint_margin, 6.)
