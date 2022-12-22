@@ -530,6 +530,8 @@ class change_options(ProtectedPage):
             if not valid_ip(gv.sd['thermostats'][therm_ip_idx-1]):
                 del gv.sd['thermostats'][therm_ip_idx-1]
         gv.sd['therm_ips'] = ', '.join(gv.sd['thermostats'])
+        for i, ip in enumerate(gv.sd['thermostats']):
+            gv.sd['thermostats'][i] = {'ip': ip, 'mode':int(qdict['oip'+str(i)+'_mode']), 'temp':float(qdict['oip'+str(i)+'_temp'])}
         try:
             new_base = float(qdict['oetbase'])
             new_weather = gv.sd['wl_et_weather'] * float(gv.sd['etbase'])/new_base

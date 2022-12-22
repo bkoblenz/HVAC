@@ -355,6 +355,15 @@ def read_sensor_value(name, recurse=0, logit=False):
                 if logit:
                     gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
                 # try to make thermostat match target config
+                d['actual'] = data['temp']
+                if 'name' not in d:
+                    curl_cmd = ['/usr/bin/curl', 'http://'+ip+'/sys/name']
+                    try:
+                        upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
+                        d['name'] = json.loads(upd_data)['name']
+                    except Exception as ex:
+                        upd_data = str(ex)
+                    gv.logger.warning('missing name: ' + str(d) + ' Update: ' + upd_data)
                 if data['tmode'] != d['mode']:
                     curl_cmd = ['/usr/bin/curl',
                                 '-d', json.dumps({'tmode':d['mode']}), cmd]
