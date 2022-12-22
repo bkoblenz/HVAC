@@ -138,7 +138,7 @@ sd = {
     u"USR_ip": "192.168.86.115",
     u"max_dewpoint": 7.0,
     u"therm_ips": "",
-    u"thermostats": [],
+    u"thermostats": {},
     u"cold_gap_time": 60,
     u"cold_gap_temp": 2.5,
     u"low_supply_time": 15,

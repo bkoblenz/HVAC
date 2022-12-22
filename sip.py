@@ -346,13 +346,39 @@ def read_sensor_value(name, recurse=0, logit=False):
     zc = None
     if name == 'zone_call_thermostats':
         max_gap = 0
-        for ip in gv.sd['thermostats']:
+        for i, d in enumerate(gv.sd['thermostats']):
+            ip = d['ip']
             cmd = 'http://' + ip + '/tstat'
             try:
                 data = json.loads(urlopen(cmd, timeout=5).read().decode('utf-8'))
                 thermostat_fails[ip] = 0
                 if logit:
                     gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
+                # try to make thermostat match target config
+                if data['tmode'] != d['mode']:
+                    curl_cmd = ['/usr/bin/curl',
+                                '-d', json.dumps({'tmode':d['mode']}), cmd]
+                    try:
+                        upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
+                    except Exception as ex:
+                        upd_data = str(ex)
+                    gv.logger.warning('mode mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
+                if d['mode'] == 1 and data['t_heat'] != d['temp']:
+                    curl_cmd = ['/usr/bin/curl',
+                                '-d', json.dumps({'tmode':d['mode'], 't_heat':d['temp'], 'hold':1}), cmd]
+                    try:
+                        upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
+                    except Exception as ex:
+                        upd_data = str(ex)
+                    gv.logger.warning('temp(heat) mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
+                elif d['mode'] == 2 and data['t_cool'] != d['temp']:
+                    curl_cmd = ['/usr/bin/curl',
+                                '-d', json.dumps({'tmode':d['mode'], 't_cool':d['temp'], 'hold':1}), cmd]
+                    try:
+                        upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
+                    except Exception as ex:
+                        upd_data = str(ex)
+                    gv.logger.warning('temp(heat) mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
                 if gv.sd['mode'] in ['Heatpump Cooling']:
                     if data['tmode'] in [2,3] and data['temp'] > data['t_cool']:
                         #zc = 1
@@ -450,7 +476,7 @@ def timing_loop():
     sustained_cold = int(time.time())
     while True:  # infinite loop
       try:
-        time.sleep(1)
+        time.sleep(10)
         gv.nowt = time.localtime()   # Current time as time struct.  Updated once per second.
         gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
         # perform once per minute processing

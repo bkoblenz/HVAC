@@ -175,6 +175,17 @@ $code:
 
             output += "<span class='tooltip'>" + tooltip + "</span>\n"
             output += "</div>\n\n"
+            if name == "therm_ips":
+                modes = ['Off', 'Heat', 'Cool']
+                for i, d in enumerate(gv.sd['thermostats']):
+                    ip = d['ip']
+                    output += "<div>" + ip + ': '
+                    output += "<select name='oip" + str(i) + "_mode'>\n"
+                    for mv, m in enumerate(modes):
+                        output += "<option " + ("selected " if d['mode'] == mv else "") + "value='"+str(mv)+"'>"+m+"</option>\n"
+                    output += "</select>"
+                    output += "Target Temp(deg F): <input name='oip" + str(i) + "_temp' type='text' size='31' maxlength='31' value=\"" + str(d['temp']) + "\">\n"
+                    output += "</div>\n"
         output += "<div class='option' title='" + "'><span class='label'>" + "</span>\n"
         output += '<table>'
         output += "<tr>"
