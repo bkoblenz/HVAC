@@ -482,22 +482,26 @@ def timing_loop():
     zct = 0
     zc = 0
     last_zc = 0
-    sustained_cold = int(time.time())
+    sleep_time = 10
+    last_wakeup = int(time.time())
+    sustained_cold = last_wakeup
     while True:  # infinite loop
       try:
-        time.sleep(10)
+        time.sleep(max(0, sleep_time-(int(time.time())-last_wakeup)))
+#        gv.logger.info('wake cold: ' + str(sustained_cold))
+        last_wakeup = int(time.time())
         gv.nowt = time.localtime()   # Current time as time struct.  Updated once per second.
         gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
         # perform once per minute processing
         if gv.now // 60 != last_min:  # only check programs once a minute
-            print 'timing'
+            gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(last_wakeup-sustained_cold))
             boiler_supply_crossover = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
             zct, max_gap = read_sensor_value('zone_call_thermostats', 0, last_min % 5 == 0)
             if zct:
                 if max_gap <= gv.sd['cold_gap_temp']:
-                    sustained_cold = int(time.time()) # reset as we are close enough
-                #gv.logger.info('max_gap: ' + str(max_gap) + ' for: ' + str(int(time.time())-sustained_cold) + ' seconds')
+                    sustained_cold = last_wakeup # reset as we are close enough
+                #gv.logger.info('max_gap: ' + str(max_gap) + ' for: ' + str(last_wakeup-sustained_cold) + ' seconds')
                 tzc = read_sensor_value('zone_call')
                 if not tzc: # small gap (.5F) may lead to no call for heat from thermostat (so zone pump will not run), so ignore implied call for heat
                     if True:
@@ -508,7 +512,7 @@ def timing_loop():
                     #else:
                     #    gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat gap: ' + "{0:.2f}".format(max_gap))
             else:
-                sustained_cold = int(time.time())
+                sustained_cold = last_wakeup
             update_radio_present()
             max_bd = -1
             boards = i2c.get_vsb_boards()
@@ -570,8 +574,6 @@ def timing_loop():
                 check_and_update_upnp(cur_ip)
                 last_upnp_refresh = gv.now
 
-        if gv.now % 60 == 0:
-            gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(int(time.time())-sustained_cold))
         process_actions()
         last_zc = zc
         zc = read_sensor_value('zone_call')
@@ -602,7 +604,7 @@ def timing_loop():
             gv.srvals[circ_pump] = 0
             set_output()
             last_zc = 0 # mark as was off
-            sustained_cold = int(time.time())
+            sustained_cold = last_wakeup
             last_mode = gv.sd['mode']
             remove_action({'what':'set_valve_change'})
             if gv.sd['mode'] in ['Heatpump Cooling'] or \
@@ -671,7 +673,7 @@ def timing_loop():
 
         #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
         if zc != last_zc: # change in zone call
-            sustained_cold = int(time.time())
+            sustained_cold = last_wakeup
             if gv.sd['mode'] == 'None':
                 zc = last_zc # dont do anything in terms of moving water
             elif last_zc == 0: # was off, now on?
@@ -739,15 +741,15 @@ def timing_loop():
                                 trend = 'Increasing'
                         last_ave_supply_temp = ave_supply_temp
                         log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' trend: ' + trend)
-                    low_supply_count += 1
+                    low_supply_count += sleep_time
                     if low_supply_count > gv.sd['low_supply_time']*60: # try to hold off boiler if heatpump water getting warmer
                         switch_to_boiler = trend != 'Increasing' and gv.sd['mode'] == 'Heatpump then Boiler'
                 else:
                     low_supply_count = 0
-                if int(time.time()) - sustained_cold > gv.sd['cold_gap_time']*60:
+                if last_wakeup - sustained_cold > gv.sd['cold_gap_time']*60:
                     switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
                 if switch_to_boiler and boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and gv.now-last_heatpump_on > 3*60:
-                    log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' coldgap: ' + str(int(time.time())-sustained_cold))
+                    log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' coldgap: ' + str(last_wakeup-sustained_cold))
                     # Use only boiler for a while
                     if not boiler_through_buffer_tank:
                         remove_action({'what':'set_valve_change'})
@@ -758,7 +760,7 @@ def timing_loop():
                     extra_min = 0 if last_on_min_gap >= 4*60 else 15 if last_on_min_gap >= 3*60 else 30
                     set_heatpump_mode('none')
                     set_boiler_mode('heating')
-                    sustained_cold = int(time.time())
+                    sustained_cold = last_wakeup
                     # try leaving boiler on until we come to temp
                     #insert_action(gv.now+(extra_min+40)*60, {'what':'set_boiler_mode', 'mode':'none'}) # used to be 59
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
