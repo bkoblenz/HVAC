@@ -135,6 +135,8 @@ def dewpoint_loop():
     while True:
         try:
             time.sleep(60)
+            if not gv.sd['USR_ip']:
+                continue
             (dew_temp, dew_hum) = get_temp_hum()
             print 'dew_temp: ', dew_temp, ' dew_hum: ', dew_hum
             failed_dewpoint_read = 0
