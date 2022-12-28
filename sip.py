@@ -338,7 +338,7 @@ min_cooling_adjustments = -max_cooling_adjustments
 cooling_adjust_per_degree = 2.5
 
 thermostat_fails = {}
-def read_sensor_value(name, recurse=0, logit=False):
+def read_sensor_value(name, logit=False):
     if 'ld' not in gv.plugin_data:
         return None
     for s in gv.plugin_data['ld']:
@@ -348,6 +348,7 @@ def read_sensor_value(name, recurse=0, logit=False):
     zc = None
     if name == 'zone_call_thermostats':
         max_gap = 0
+        fails = 0
         for i, d in enumerate(gv.sd['thermostats']):
             ip = d['ip']
             cmd = 'http://' + ip + '/tstat'
@@ -418,16 +419,15 @@ def read_sensor_value(name, recurse=0, logit=False):
                         except:
                             pass
                 except:
-                    thermostat_fails[ip] = 1
-                if recurse <= 5: # reread in case this thermostat is the one one calling for heat and we dont want to reset cold_gap
-                    time.sleep(3)
-                    return read_sensor_value(name, recurse+1, logit)
+                    thermostat_fails[ip] = 0
+                thermostat_fails[ip] += 1
+                fails += 1
 
         if logit:
             gv.logger.info(name + ' zc: ' + str(zc) + ' max_gap: ' + str(max_gap))
         if zc == None:
             gv.logger.warning('read_sensor_value failed to get thermostat data from ANY thermostat: ' + str(gv.sd['thermostats']))
-        return zc, max_gap
+        return zc, max_gap, fails
     return zc
 
 def read_temps():
@@ -499,10 +499,12 @@ def timing_loop():
             gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(last_wakeup-sustained_cold))
             boiler_supply_crossover = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
-            zct, max_gap = read_sensor_value('zone_call_thermostats', 0, last_min % 5 == 0)
-            if zct:
-                if max_gap <= gv.sd['cold_gap_temp']:
+            zct, max_gap, fails = read_sensor_value('zone_call_thermostats', last_min % 5 == 0)
+            if zct or (fails > 0 and last_zc): # keep on with what we had if we could not access some thermostats
+                if fails == 0 and max_gap <= gv.sd['cold_gap_temp']:
                     sustained_cold = last_wakeup # reset as we are close enough
+                if not zct:
+                    gv.logger.info('missed zct fails: ' + str(fails))
                 #gv.logger.info('max_gap: ' + str(max_gap) + ' for: ' + str(last_wakeup-sustained_cold) + ' seconds')
                 tzc = read_sensor_value('zone_call')
                 if not tzc: # small gap (.5F) may lead to no call for heat from thermostat (so zone pump will not run), so ignore implied call for heat
@@ -513,9 +515,8 @@ def timing_loop():
                     #    zct = False # let sustained cold persist?
                     #else:
                     #    gv.logger.error('Zone_call_thermostat set and does not match zone_call sensor...using zone_call_thermostat gap: ' + "{0:.2f}".format(max_gap))
-            else:
+            elif fails == 0:
                 sustained_cold = last_wakeup
-            update_radio_present()
             max_bd = -1
             boards = i2c.get_vsb_boards()
             for bd, version in boards.items():
@@ -580,8 +581,7 @@ def timing_loop():
         last_zc = zc
         zc = read_sensor_value('zone_call')
         if zct and not zc:
-            if gv.now % 60 == 0:
-                gv.logger.info('timing_loop ignoring physical zone_call')
+            gv.logger.info('timing_loop ignoring physical zone_call')
             zc = zct
         elif zct != None and not zct and zc:
             zc = zct

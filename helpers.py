@@ -168,13 +168,6 @@ def usb_reset(kind=''):
     except: # no usbreset
         pass
 
-def update_radio_present():
-    try:
-        with open(gv.radio_dev, 'r') as sdf:
-            gv.sd['radio_present'] = True
-    except:
-        gv.sd['radio_present'] = False
-
 def propagate_to_substations(cmd, params=''):
     """Propagate urlcmd to each proxied substation and then slaves (other than ourselves)"""
 
