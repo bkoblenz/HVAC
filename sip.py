@@ -671,6 +671,7 @@ def timing_loop():
             dew_f = dew*1.8 + 32
             log_event('supply temp: ' + "{0:.2f}".format(ast_c) + 'C ' + "{0:.2f}".format(ast_f) + 'F' + '; ' + \
                       'return temp: ' + "{0:.2f}".format(art_c) + 'C ' + "{0:.2f}".format(art_f) + 'F' + '; ' + \
+                      'cold: ' + str(sustained_cold-last_wakeup) + '; ' + \
                       'dewpoint: ' + "{0:.2f}".format(dew) + 'C ' + "{0:.2f}".format(dew_f) + 'F')
 
         #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
@@ -746,6 +747,13 @@ def timing_loop():
                     low_supply_count += sleep_time
                     if low_supply_count > gv.sd['low_supply_time']*60: # try to hold off boiler if heatpump water getting warmer
                         switch_to_boiler = trend != 'Increasing' and gv.sd['mode'] == 'Heatpump then Boiler'
+                        if switch_to_boiler:
+                            log_event('Heatpump hot water supply failure')
+                            try:
+                                gv.plugin_data['te']['tesender'].try_mail('Heating', 'Heatpump hot water supply failure')
+                            except:
+                                log_event('hot supply water failure email send failed')
+                        switch_to_boiler = False # just rely on coldgap for now
                 else:
                     low_supply_count = 0
                 if last_wakeup - sustained_cold > gv.sd['cold_gap_time']*60:
