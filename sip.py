@@ -753,6 +753,7 @@ def timing_loop():
                                 gv.plugin_data['te']['tesender'].try_mail('Heating', 'Heatpump hot water supply failure')
                             except:
                                 log_event('hot supply water failure email send failed')
+                            low_supply_count = 0 # reset
                         switch_to_boiler = False # just rely on coldgap for now
                 else:
                     low_supply_count = 0
