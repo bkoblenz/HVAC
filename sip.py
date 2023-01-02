@@ -671,7 +671,7 @@ def timing_loop():
             dew_f = dew*1.8 + 32
             log_event('supply temp: ' + "{0:.2f}".format(ast_c) + 'C ' + "{0:.2f}".format(ast_f) + 'F' + '; ' + \
                       'return temp: ' + "{0:.2f}".format(art_c) + 'C ' + "{0:.2f}".format(art_f) + 'F' + '; ' + \
-                      'cold: ' + str(sustained_cold-last_wakeup) + '; ' + \
+                      'cold: ' + str(last_wakeup-sustained_cold) + '; ' + \
                       'dewpoint: ' + "{0:.2f}".format(dew) + 'C ' + "{0:.2f}".format(dew_f) + 'F')
 
         #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
