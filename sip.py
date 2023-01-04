@@ -174,7 +174,7 @@ boiler_mode = 'none'
 # If return from boiler should flow through buffer tank set following to true.  When large delta T, this seems worse
 # because we do not get heatpump heating in background.  On the other hand, with low delta T, then this gives heatpump
 # time to rest.
-boiler_through_buffer_tank = False # If return from boiler should flow through buffer tank.
+buffer_tank_isolated = True # default to we just ran boiler and do not want to fill buffer tank with hot water since heatpump might high pressure fault
 
 def get_boiler_mode():
     return boiler_mode
@@ -192,9 +192,11 @@ def set_boiler_mode(md, remove=True):
     else:
         gv.srvals[boiler_call] = 0
         set_output()
-        if gv.sd['mode'] not in ['Boiler Only'] and not boiler_through_buffer_tank: # put valve back to all buffer tank
-            remove_action({'what':'set_valve_change'})
-            insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
+        # leave buffer_tank_isolated supply temperature comes down to avoid faulting heatpump
+        #if gv.sd['mode'] not in ['Boiler Only']: # put valve back to all buffer tank
+            #gv.logger.info('set_boiler_mode not going to all buffer tank')
+            #remove_action({'what':'set_valve_change'})
+            #insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
         last_boiler_off = gv.now
 #        gv.logger.info('set_boiler_mode ' + md + ' last_boiler_off: ' + str(last_boiler_off))
     boiler_mode = md
@@ -285,7 +287,7 @@ def remove_action(action):
 
 logged_internal_error = False
 def process_actions():
-    global logged_internal_error
+    global logged_internal_error, buffer_tank_isolated
 
     if len(actions) > 10 and not logged_internal_error:
         try:
@@ -323,11 +325,15 @@ def process_actions():
                         gv.srvals[close_ret] = 0
                         gv.srvals[open_ret] = 1
                         log_event('more return water: ' + str(-int(amount)) + '%')
+                        #gv.logger.info('setting buffer_tank_isolated')
+                        buffer_tank_isolated = amount == -100
                     else: # less return, more buffer tank
                         insert_action(gv.now+int(amount), {'what':'set_valve_change', 'valve_change_percent':0})
                         gv.srvals[close_ret] = 1
                         gv.srvals[open_ret] = 0
                         log_event('more buffer tank water: ' + str(int(amount)) + '%')
+                        #gv.logger.info('clearing buffer_tank_isolated')
+                        buffer_tank_isolated = False
                     set_output()
             except Exception as ex:
                 log_event('Unexpected action: ' + action['what'] + ' ex: ' + str(ex))
@@ -484,11 +490,12 @@ def timing_loop():
     zct = 0
     zc = 0
     last_zc = 0
-    sleep_time = 10
+    sleep_time = 2
     last_wakeup = int(time.time())
     sustained_cold = last_wakeup
     while True:  # infinite loop
       try:
+        process_actions()
         time.sleep(max(0, sleep_time-(int(time.time())-last_wakeup)))
 #        gv.logger.info('wake cold: ' + str(sustained_cold))
         last_wakeup = int(time.time())
@@ -577,7 +584,6 @@ def timing_loop():
                 check_and_update_upnp(cur_ip)
                 last_upnp_refresh = gv.now
 
-        process_actions()
         last_zc = zc
         zc = read_sensor_value('zone_call')
         if zct and not zc:
@@ -609,11 +615,8 @@ def timing_loop():
             sustained_cold = last_wakeup
             last_mode = gv.sd['mode']
             remove_action({'what':'set_valve_change'})
-            if gv.sd['mode'] in ['Heatpump Cooling'] or \
-                   (gv.sd['mode'] in ['Boiler Only'] and not boiler_through_buffer_tank): # use only return water
-                insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
-            else:
-                insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
+            insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
+            continue
 
         try:
             temps = read_temps()
@@ -662,10 +665,17 @@ def timing_loop():
         except ZeroDivisionError:
             ave_return_temp = -1
 
-        if gv.now - last_temp_log >= 600:
-            last_temp_log = gv.now
+        #gv.logger.info('bti: ' + str(buffer_tank_isolated) + ' t: ' + str(ave_supply_temp) + ' md: ' + gv.sd['mode'])
+        # if we have been ignoring buffer tank and supply temp is now low enough, open buffer tank
+        if buffer_tank_isolated and 0 < ave_supply_temp < 37 and gv.sd['mode'] not in  ['Boiler Only', 'Heatpump Cooling']:
+            gv.logger.info('reopening buffer tank; supply temp: ' + str(ave_supply_temp)+'C')
+            remove_action({'what':'set_valve_change'})
+            insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100}) # will reset buffer_tank_isolated
+
+        if gv.now - last_temp_log >= 300:
             ast_c = ave_supply_temp
             ast_f = ast_c*1.8 + 32
+            last_temp_log = gv.now
             art_c = ave_return_temp
             art_f = art_c*1.8 + 32
             dew_f = dew*1.8 + 32
@@ -692,12 +702,14 @@ def timing_loop():
                     remove_action({'what':'set_valve_change'})
                     insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                     one_way_cooling_adjustments = 0
-                elif not boiler_through_buffer_tank:
+                else:
                     remove_action({'what':'set_valve_change'})
                     if gv.sd['mode'] in ['Boiler Only']:
                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
-                    else:
+                    elif not buffer_tank_isolated: # only open buffer tank when supply temp is cool enough
                         insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
+                    #else:
+                    #    gv.logger.info('change in zone call would have opened buffer tank')
  
                 if gv.sd['mode'] == 'Boiler Only':
                     log_event('zone call on; enable boiler')
@@ -762,9 +774,8 @@ def timing_loop():
                 if switch_to_boiler and boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and gv.now-last_heatpump_on > 3*60:
                     log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' coldgap: ' + str(last_wakeup-sustained_cold))
                     # Use only boiler for a while
-                    if not boiler_through_buffer_tank:
-                        remove_action({'what':'set_valve_change'})
-                        insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
+                    remove_action({'what':'set_valve_change'})
+                    insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':-100})
                     # try an hour to warm things up and allow defrost mode on hp to finish and rewarm tank
                     last_on_min_gap = (gv.now - last_boiler_on)//60
 #                    gv.logger.info('last_on_min_gap: ' + str(last_on_min_gap) + ' now: ' + str(gv.now) + ' on: ' + str(last_boiler_on))
