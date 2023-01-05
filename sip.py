@@ -10,6 +10,7 @@ import json
 import ast
 import time
 import thread
+import threading
 from calendar import timegm
 import sys
 sys.path.append('./plugins')
@@ -128,8 +129,6 @@ failed_dewpoint_read = 0
 def dewpoint_loop():
     global dew, failed_dewpoint_read
 
-    nowt = time.localtime()
-    now = timegm(nowt)
     log_event('enter dewpoint loop')
 
     while True:
@@ -260,33 +259,47 @@ def set_heatpump_pump_mode(md, remove=True):
 #    log_event('set_heatpump_pump_mode: ' + md)
 
 actions = []
+action_lock = threading.RLock()
+def action_loop():
+    while True:
+        gv.nowt = time.localtime()   # Current time as time struct.  Updated once per second.
+        gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
+        process_actions()
+        time.sleep(2)
+
 def insert_action(when, action):
-    position = 0
-    for a in actions:
-        if a['time'] <= when:
-            position += 1
-            continue
-        break
-    actions.insert(position, {'time':when, 'action':action})
+    with action_lock:
+        position = 0
+        for a in actions:
+            if a['time'] <= when:
+                position += 1
+                continue
+            break
+        actions.insert(position, {'time':when, 'action':action})
 
 def remove_action(action):
     """ Remove any future action that corresponds to action"""
 
-    for i, a in enumerate(actions[:]):
-        a = a['action']
-        if a['what'] != action['what']:
-            continue
-        if a['what'] in ['set_heatpump_mode', 'set_heatpump_pump_mode', 'set_boiler_mode']:
-            if action['mode'] != 'any' and a['mode'] != action['mode']:
+    with action_lock:
+        for i, a in enumerate(actions[:]):
+            a = a['action']
+            if a['what'] != action['what']:
                 continue
-            del actions[i]
-        elif action['what'] == 'set_valve_change':
-            del actions[i]
-        else:
-            log_event('remove_action: no understood action: ' + action['what'])
+            if a['what'] in ['set_heatpump_mode', 'set_heatpump_pump_mode', 'set_boiler_mode']:
+                if action['mode'] != 'any' and a['mode'] != action['mode']:
+                    continue
+                del actions[i]
+            elif action['what'] == 'set_valve_change':
+                del actions[i]
+            else:
+                log_event('remove_action: no understood action: ' + action['what'])
 
 logged_internal_error = False
 def process_actions():
+    with action_lock:
+        process_actions_work()
+
+def process_actions_work():
     global logged_internal_error, buffer_tank_isolated
 
     if len(actions) > 10 and not logged_internal_error:
@@ -471,8 +484,8 @@ def timing_loop():
 
     for delay in range(15):
         time.sleep(1) # wait for ip addressing to settle but keep updating time
-        gv.nowt = time.localtime()   # Current time as time struct.  Updated once per second.
-        gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
+        #gv.nowt = time.localtime()   # Current time as time struct.  Updated once per second.
+        #gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
 
     start_time = gv.now
     check_and_update_upnp()
@@ -490,17 +503,14 @@ def timing_loop():
     zct = 0
     zc = 0
     last_zc = 0
-    sleep_time = 2
+    sleep_time = 15
     last_wakeup = int(time.time())
     sustained_cold = last_wakeup
     while True:  # infinite loop
       try:
-        process_actions()
         time.sleep(max(0, sleep_time-(int(time.time())-last_wakeup)))
 #        gv.logger.info('wake cold: ' + str(sustained_cold))
         last_wakeup = int(time.time())
-        gv.nowt = time.localtime()   # Current time as time struct.  Updated once per second.
-        gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
         # perform once per minute processing
         if gv.now // 60 != last_min:  # only check programs once a minute
             gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(last_wakeup-sustained_cold))
@@ -511,7 +521,8 @@ def timing_loop():
                 if fails == 0 and max_gap <= gv.sd['cold_gap_temp']:
                     sustained_cold = last_wakeup # reset as we are close enough
                 if not zct:
-                    gv.logger.info('missed zct fails: ' + str(fails))
+                    gv.logger.info('missed zct fails: ' + str(fails) + ' last_zc: ' + str(last_zc) + ' forcing zct on')
+                    zct = 1 
                 #gv.logger.info('max_gap: ' + str(max_gap) + ' for: ' + str(last_wakeup-sustained_cold) + ' seconds')
                 tzc = read_sensor_value('zone_call')
                 if not tzc: # small gap (.5F) may lead to no call for heat from thermostat (so zone pump will not run), so ignore implied call for heat
@@ -586,6 +597,7 @@ def timing_loop():
 
         last_zc = zc
         zc = read_sensor_value('zone_call')
+        #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
         if zct and not zc:
             gv.logger.info('timing_loop ignoring physical zone_call')
             zc = zct
@@ -612,6 +624,7 @@ def timing_loop():
             gv.srvals[circ_pump] = 0
             set_output()
             last_zc = 0 # mark as was off
+            zc = 0
             sustained_cold = last_wakeup
             last_mode = gv.sd['mode']
             remove_action({'what':'set_valve_change'})
@@ -665,12 +678,14 @@ def timing_loop():
         except ZeroDivisionError:
             ave_return_temp = -1
 
-        #gv.logger.info('bti: ' + str(buffer_tank_isolated) + ' t: ' + str(ave_supply_temp) + ' md: ' + gv.sd['mode'])
+        gv.logger.info('bti: ' + str(buffer_tank_isolated) + ' st: ' + str(ave_supply_temp) + ' rt: ' + str(ave_return_temp) +
+                       ' bmd: ' + boiler_md + ' gvmd: ' + gv.sd['mode'])
         # if we have been ignoring buffer tank and supply temp is now low enough, open buffer tank
-        if buffer_tank_isolated and 0 < ave_supply_temp < 37 and gv.sd['mode'] not in  ['Boiler Only', 'Heatpump Cooling']:
+        if boiler_md != 'heating' and buffer_tank_isolated and 0 < ave_supply_temp < 37 and gv.sd['mode'] not in  ['Boiler Only', 'Heatpump Cooling']:
             gv.logger.info('reopening buffer tank; supply temp: ' + str(ave_supply_temp)+'C')
             remove_action({'what':'set_valve_change'})
             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100}) # will reset buffer_tank_isolated
+            sustained_cold = last_wakeup # start countdown to turning boiler back on
 
         if gv.now - last_temp_log >= 300:
             ast_c = ave_supply_temp
@@ -686,6 +701,7 @@ def timing_loop():
 
         #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
         if zc != last_zc: # change in zone call
+            gv.logger.info('change in zone call; last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
             sustained_cold = last_wakeup
             if gv.sd['mode'] == 'None':
                 zc = last_zc # dont do anything in terms of moving water
@@ -785,6 +801,7 @@ def timing_loop():
                     sustained_cold = last_wakeup
                     # try leaving boiler on until we come to temp
                     #insert_action(gv.now+(extra_min+40)*60, {'what':'set_boiler_mode', 'mode':'none'}) # used to be 59
+                    insert_action(gv.now+(extra_min+40)*60, {'what':'set_boiler_mode', 'mode':'none'}) # used to be 59
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
                  dewpoint_margin = 1.
                  target = max(dew+dewpoint_margin, 6.)
@@ -965,6 +982,9 @@ if __name__ == '__main__':
     
     gv.logger.info('Starting dewpoint thread')
     thread.start_new_thread(dewpoint_loop, ())
+
+    gv.logger.info('Starting action thread')
+    thread.start_new_thread(action_loop, ())
 
     gv.logger.info('Starting main thread')
     thread.start_new_thread(timing_loop, ())
