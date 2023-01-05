@@ -222,13 +222,13 @@ options = []
 #    [_("Use rain sensor"), "boolean", "urs", _("Use rain sensor."), _("Rain Sensor")],
 #    [_("Normally open"), "boolean", "rst", _("Rain sensor type."), _("Rain Sensor")],
 #    [_("System name"), "string", "name", _("Unique name of this Irricloud system."), _("System")], \
+#    [_("Boiler Supply Temp (degrees F)"), "float", "boiler_supply_temp", _("Water supply temperature below which boiler will turn on."), _("System")], \
+#    [_("Boiler Supply Time"), "int", "low_supply_time", _("Minutes when temperature is below Boiler Supply Temp target to enable boiler."), _("System")], \
 
 options += \
     [_("Time zone"), "list", "tza", _("Example: US/Pacific."), _("System")], \
     [_("24-hour clock"), "boolean", "tf", _("Display times in 24 hour format (as opposed to AM/PM style.)"), _("System")], \
     [_("Mode"), "list", "mode", _("Heating or cooling mode."), _("System")], \
-    [_("Boiler Supply Temp (degrees F)"), "float", "boiler_supply_temp", _("Water supply temperature below which boiler will turn on."), _("System")], \
-    [_("Boiler Supply Time"), "int", "low_supply_time", _("Minutes when temperature is below Boiler Supply Temp target to enable boiler."), _("System")], \
     [_("Cold Gap Temp (degrees F)"), "float", "cold_gap_temp", _("Degrees below target temperature when considered cold."), _("System")], \
     [_("Cold Gap Time"), "int", "cold_gap_time", _("Minutes when temperature is Cold Gap degrees below target to enable boiler."), _("System")], \
     [_("Max Dewpoint (degrees C)"), "float", "max_dewpoint", _("Limit dewpoint to this value."), _("System")], \

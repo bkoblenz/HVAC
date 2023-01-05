@@ -170,6 +170,8 @@ dry4 = 7
 last_boiler_off = 0
 last_boiler_on = 0
 boiler_mode = 'none'
+last_wakeup = int(time.time())
+sustained_cold = last_wakeup
 # If return from boiler should flow through buffer tank set following to true.  When large delta T, this seems worse
 # because we do not get heatpump heating in background.  On the other hand, with low delta T, then this gives heatpump
 # time to rest.
@@ -179,7 +181,7 @@ def get_boiler_mode():
     return boiler_mode
 
 def set_boiler_mode(md, remove=True):
-    global boiler_mode, last_boiler_on, last_boiler_off
+    global boiler_mode, last_boiler_on, last_boiler_off, sustained_cold
 
     if remove:
         remove_action({'what':'set_boiler_mode', 'mode':'any'})
@@ -197,6 +199,7 @@ def set_boiler_mode(md, remove=True):
             #remove_action({'what':'set_valve_change'})
             #insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100})
         last_boiler_off = gv.now
+        sustained_cold = last_wakeup
 #        gv.logger.info('set_boiler_mode ' + md + ' last_boiler_off: ' + str(last_boiler_off))
     boiler_mode = md
     log_event('set_boiler_mode: ' + md)
@@ -461,6 +464,8 @@ def read_temps():
 
 def timing_loop():
     """ ***** Main timing algorithm. Runs in a separate thread.***** """
+    global sustained_cold, last_wakeup
+
     last_min = 0
     supply_temp_readings = []
     return_temp_readings = []
@@ -774,7 +779,8 @@ def timing_loop():
                         log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' trend: ' + trend)
                     low_supply_count += sleep_time
                     if low_supply_count > gv.sd['low_supply_time']*60: # try to hold off boiler if heatpump water getting warmer
-                        switch_to_boiler = trend != 'Increasing' and gv.sd['mode'] == 'Heatpump then Boiler'
+                        #switch_to_boiler = trend != 'Increasing' and gv.sd['mode'] == 'Heatpump then Boiler'
+                        switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
                         if switch_to_boiler:
                             log_event('Heatpump hot water supply failure')
                             try:
