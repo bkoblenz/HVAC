@@ -353,7 +353,7 @@ class SensorsChecker(Thread):
                                         text_email.checker.try_mail(subj, body)
                                 elif s['failure_sequence_count'] < 1:
                                     gv.logger.info('Single failure ignored for sensor ' + s['name'])
-                                elif s['failure_senquence_count'] == 2 or s['failure_senquence_count']%100 == 0:
+                                elif s['failure_sequence_count'] == 2 or s['failure_sequence_count']%100 == 0:
                                     gv.logger.info('Multi failure ignored for sensor ' + s['name'] + ' times: ' + str(s['failure_sequence_count']))
                                 scratch_register_verification(s['vsb_bd'])
                                 s['failure_sequence_count'] += 1
@@ -466,7 +466,7 @@ class SensorsChecker(Thread):
                                         text_email.checker.try_mail(subj, body)
                                 elif s['failure_sequence_count'] < 1:
                                     gv.logger.info('Single failure ignored for sensor ' + s['name'])
-                                elif s['failure_senquence_count'] == 2 or s['failure_senquence_count']%100 == 0:
+                                elif s['failure_sequence_count'] == 2 or s['failure_sequence_count']%100 == 0:
                                     gv.logger.info('Multi failure ignored for sensor ' + s['name'] + ' times: ' + str(s['failure_sequence_count']))
                                 scratch_register_verification(s['vsb_bd'])
                                 s['failure_sequence_count'] += 1
