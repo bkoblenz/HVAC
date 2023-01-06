@@ -956,7 +956,9 @@ if __name__ == '__main__':
     #########################################################
     #### Code to import all webpages and plugin webpages ####
 
+    gv.logger.info('pre import plugins')
     import plugins
+    gv.logger.info('post import plugins')
 
     try:
         gv.logger.info(_('plugins loaded:'))

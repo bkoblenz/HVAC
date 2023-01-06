@@ -22,7 +22,7 @@ __all__ = []
 for name in glob(join(basedir, '*.py')):
     module = splitext(split(name)[-1])[0]
     if not module.startswith('_') and isidentifier(module) and not keyword.iskeyword(module):
-        gv.logger.debug('os: '+ os_name + ' module: ' + module)
+        gv.logger.info('os: '+ os_name + ' module: ' + module)
         if os_name == "posix":
             st = os.stat(name)
             if bool(st.st_mode & stat.S_IXGRP) or module == 'mobile_app' or module == 'plugin_manager':  # Load plugin if group permission is executable.

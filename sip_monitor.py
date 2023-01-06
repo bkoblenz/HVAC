@@ -191,7 +191,7 @@ if __name__ == "__main__":
         try:
             try:
                 found_proxy = program_pid('substation_proxy.py')
-                if found_proxy == 0:
+                if False and found_proxy == 0:
                     try:
                         with open('data/substation_proxy_pause','r') as f:
                             logger.info('substation_proxy paused')
