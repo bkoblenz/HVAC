@@ -27,7 +27,9 @@ for name in glob(join(basedir, '*.py')):
             st = os.stat(name)
             if bool(st.st_mode & stat.S_IXGRP) or module == 'mobile_app' or module == 'plugin_manager':  # Load plugin if group permission is executable.
                 try:
+                    gv.logger.info('preimport: ' + __name__+'.'+module)
                     __import__(__name__+'.'+module)
+                    gv.logger.info('postimport: ' + __name__+'.'+module)
                 except Exception as e:
                     print 'Ignoring exception while loading the {} plug-in.'.format(module)
                     print e  # Provide feedback for plugin development
@@ -42,3 +44,4 @@ for name in glob(join(basedir, '*.py')):
             else:
                 __all__.append(module)
 __all__.sort()
+gv.logger.info('__all__ plugins: ' + str(__all__))

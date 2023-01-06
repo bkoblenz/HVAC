@@ -378,7 +378,7 @@ def read_sensor_value(name, logit=False):
                 data = json.loads(urlopen(cmd, timeout=5).read().decode('utf-8'))
                 thermostat_fails[ip] = 0
                 if logit:
-                    gv.logger.info('tstat ' + ip + ' mode: ' + gv.sd['mode'] + ': ' + str(data))
+                    gv.logger.info('tstat ' + ip + ': ' + str(data))
                 # try to make thermostat match target config
                 d['actual'] = data['temp']
                 if 'name' not in d:
@@ -511,6 +511,8 @@ def timing_loop():
     sleep_time = 15
     last_wakeup = int(time.time())
     sustained_cold = last_wakeup
+    low_supply_count = 0
+
     while True:  # infinite loop
       try:
         time.sleep(max(0, sleep_time-(int(time.time())-last_wakeup)))
@@ -519,7 +521,7 @@ def timing_loop():
         # perform once per minute processing
         if gv.now // 60 != last_min:  # only check programs once a minute
             gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(last_wakeup-sustained_cold))
-            boiler_supply_crossover = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
+            boiler_supply_crossover_c = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
             zct, max_gap, fails = read_sensor_value('zone_call_thermostats', last_min % 5 == 0)
             if zct or (fails > 0 and last_zc): # keep on with what we had if we could not access some thermostats
@@ -621,7 +623,7 @@ def timing_loop():
         boiler_md = get_boiler_mode()
         heatpump_md = get_heatpump_mode()
         if gv.sd['mode'] != last_mode: # turn everything off
-            log_event('change mode.  Turn off boiler, heatpump, circ_pump')
+            log_event('change mode from: ' + last_mode + ' to: ' + gv.sd['mode'] + '.  Turn off boiler, heatpump, circ_pump')
             if boiler_md != 'none':
                 set_boiler_mode('none')
             if heatpump_md != 'none':
@@ -683,10 +685,9 @@ def timing_loop():
         except ZeroDivisionError:
             ave_return_temp = -1
 
-        gv.logger.info('bti: ' + str(buffer_tank_isolated) + ' st: ' + str(ave_supply_temp) + ' rt: ' + str(ave_return_temp) +
-                       ' bmd: ' + boiler_md + ' gvmd: ' + gv.sd['mode'])
+        gv.logger.info('bti: ' + str(buffer_tank_isolated) + ' st: ' + str(ave_supply_temp) + ' rt: ' + str(ave_return_temp) + ' bmd: ' + boiler_md)
         # if we have been ignoring buffer tank and supply temp is now low enough, open buffer tank
-        if boiler_md != 'heating' and buffer_tank_isolated and 0 < ave_supply_temp < 37 and gv.sd['mode'] not in  ['Boiler Only', 'Heatpump Cooling']:
+        if boiler_md != 'heating' and buffer_tank_isolated and 0 < ave_supply_temp < boiler_supply_crossover_c and gv.sd['mode'] not in  ['Boiler Only', 'Heatpump Cooling']:
             gv.logger.info('reopening buffer tank; supply temp: ' + str(ave_supply_temp)+'C')
             remove_action({'what':'set_valve_change'})
             insert_action(gv.now, {'what':'set_valve_change', 'valve_change_percent':100}) # will reset buffer_tank_isolated
@@ -714,7 +715,6 @@ def timing_loop():
                 supply_temp_readings = []
                 return_temp_readings = []
                 last_ave_supply_temp = None
-                low_supply_count = 0
                 log_event('zone call on; enable circ pump')
                 gv.srvals[circ_pump] = 1
                 set_output()
@@ -766,7 +766,7 @@ def timing_loop():
             if gv.sd['mode'] in ['Heatpump then Boiler', 'Heatpump Only']:
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
                 switch_to_boiler = False
-                if ave_supply_temp < boiler_supply_crossover:
+                if ave_supply_temp < boiler_supply_crossover_c:
                     # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
                     if low_supply_count % 150 == 0:
                         trend = 'Neutral'
@@ -789,7 +789,7 @@ def timing_loop():
                                 log_event('hot supply water failure email send failed')
                             low_supply_count = 0 # reset
                         switch_to_boiler = False # just rely on coldgap for now
-                else:
+                elif not buffer_tank_isolated: # only reset once we know we are looking at buffer tank water
                     low_supply_count = 0
                 if last_wakeup - sustained_cold > gv.sd['cold_gap_time']*60:
                     switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
