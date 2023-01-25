@@ -168,44 +168,6 @@ def usb_reset(kind=''):
     except: # no usbreset
         pass
 
-def propagate_to_substations(cmd, params=''):
-    """Propagate urlcmd to each proxied substation and then slaves (other than ourselves)"""
-
-    proxies = []
-    slaves = []
-    unreachable = []
-    for i in range(1,len(gv.plugin_data['su']['subinfo'])):
-        sub = gv.plugin_data['su']['subinfo'][i]
-        if sub['status'] == 'ok':
-            if sub['proxy'] != '':
-                proxies.append(sub)
-            elif sub['ip'] != get_ip():
-                slaves.append(sub)
-        else:
-            gv.logger.info('propagate_to_substations.  unreachable: ' + sub['name'])
-            unreachable.append(sub)
-    
-    # do all proxied slaves then slaves.  Otherwise gateway may be shut down
-    propagate = proxies + slaves
-    for sub in propagate:
-        urlcmd = 'http://' + sub['ip']
-        if 'port' in sub and sub['port'] != 80 and sub['port'] != 0:
-            urlcmd += ":" + sub['port']
-        if sub['proxy'] != '':
-            urlcmd += ':9080/supri?proxyaddress='+sub['proxy'] + '&' + 'proxycommand=' + cmd
-            if params != '':
-                urlcmd += '&'
-        else:
-            urlcmd += '/'+cmd
-            if params != '':
-                urlcmd += '?'
-        urlcmd += urllib.quote_plus(params)
-        try:
-            gv.logger.info('propagate_to_substations: ' + urlcmd)
-            data = urllib2.urlopen(urlcmd, timeout=gv.url_timeout+2)
-        except:
-            pass # ignore results
-
 def uptime():
     """
     Returns UpTime for RPi
@@ -1458,7 +1420,7 @@ def check_login(redirect=False):
                 gv.logger.debug('check_login for slave success from proxy: ' + remote)
                 return True
 
-        if gv.sd['master']:
+        if False and gv.sd['master']:
             try:
                 for i in range(1, len(gv.plugin_data['su']['subinfo'])):
                     sub = gv.plugin_data['su']['subinfo'][i]

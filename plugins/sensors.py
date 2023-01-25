@@ -621,9 +621,7 @@ class view_sensors(ProtectedPage):
                 subid, data = load_and_save_remote(qdict, [], 'susldr', 'data', {'sensors':1, 'ldi':-1})
                 return template_render.sensors(subid, data['sensors'])
             except Exception as ex:
-                gv.logger.info('view_sensors: No response from slave: ' +
-                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
-                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
+                gv.logger.info('view_sensors: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
 
 temporary_sensor = proto_sens.copy()
@@ -662,9 +660,7 @@ class modify_sensor(ProtectedPage):
                     temporary_sensor = sensdata.copy()
                 return template_render.modify_sensor(subid, gv.sd['tu'], data['programs'], data['sensboards'], data['remotesensboards'], sensnames, sensid, sensdata)
             except Exception as ex:
-                gv.logger.info('modify_sensor: No response from slave: ' +
-                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
-                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
+                gv.logger.info('modify_sensor: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
 
 class change_sensor(ProtectedPage):
@@ -818,9 +814,7 @@ class change_sensor(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ldcs', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('change_sensor: No response from slave: ' +
-                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
-                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
+                gv.logger.info('change_sensor: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
         raise web.seeother('/lda')
 
@@ -891,9 +885,7 @@ class delete_sensor(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ldds', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('delete_sensor: No response from slave: ' +
-                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
-                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
+                gv.logger.info('delete_sensor: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
         raise web.seeother('/lda')
 
@@ -914,9 +906,7 @@ class enable_sensor(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ldes', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('enable_sensor: No response from slave: ' +
-                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
-                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
+                gv.logger.info('enable_sensor: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
         raise web.seeother('/lda')
 
@@ -946,9 +936,7 @@ class view_log_sensor(ProtectedPage):
             except Exception as ex:
 #                exc_type, exc_value, exc_traceback = sys.exc_info()
 #                err_string = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
-                gv.logger.info('view_log_sensor: No response from slave: ' +
-                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
-                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
+                gv.logger.info('view_log_sensor: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
             raise web.seeother('/lda')
 
@@ -969,9 +957,7 @@ class clear_log_sensor(ProtectedPage):
             try:
                 subid, data = load_and_save_remote(qdict, [], 'ldcl', 'substation', '0')
             except Exception as ex:
-                gv.logger.info('clear_log_sensor: No response from slave: ' +
-                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
-                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
+                gv.logger.info('clear_log_sensor: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
         raise web.seeother('/ldvl?sensid='+str(sensid)+'&substation='+str(subid))
 
@@ -984,16 +970,10 @@ class sensor_sample_log(ProtectedPage):
         qdict = web.input()
         subid = 0 if 'substation' not in qdict else int(qdict['substation'])
         sensid = int(qdict['sensid'])
-        if process_page_request('sensor_sample_log', qdict) or subid == 0:
-            filename = 'sensor-sample-log'
-            filename += '-' + gv.plugin_data['ld'][sensid]['name'] + '.csv'
-            sens = gv.plugin_data['ld'][sensid]
-            records = read_log('sensors/'+gv.plugin_data['ld'][sensid]['name']+'/logs/slog')
-        else:
-            filename = 'sensor-sample-log-' + gv.plugin_data['su']['subinfo'][subid]['name']
-            filename += '-' + gv.plugin_data['su']['subdesc'][subid]['ld']['name'] + '.csv'
-            sens = gv.plugin_data['su']['subdesc'][subid]['ld']
-            records = gv.plugin_data['su']['subdesc'][subid]['slog']
+        filename = 'sensor-sample-log'
+        filename += '-' + gv.plugin_data['ld'][sensid]['name'] + '.csv'
+        sens = gv.plugin_data['ld'][sensid]
+        records = read_log('sensors/'+gv.plugin_data['ld'][sensid]['name']+'/logs/slog')
 
         data = _("Date, Time, Value") + "\n"
         for r in records:
@@ -1017,14 +997,9 @@ class sensor_event_log(ProtectedPage):
         qdict = web.input()
         subid = 0 if 'substation' not in qdict else int(qdict['substation'])
         sensid = int(qdict['sensid'])
-        if process_page_request('sensor_log', qdict) or subid == 0:
-            filename = 'sensor-event-log'
-            filename += '-' + gv.plugin_data['ld'][sensid]['name'] + '.csv'
-            records = read_log('sensors/'+gv.plugin_data['ld'][sensid]['name']+'/logs/evlog')
-        else:
-            filename = 'sensor-event-log-' + gv.plugin_data['su']['subinfo'][subid]['name']
-            filename += '-' + gv.plugin_data['su']['subdesc'][subid]['ld']['name'] + '.csv'
-            records = gv.plugin_data['su']['subdesc'][subid]['evlog']
+        filename = 'sensor-event-log'
+        filename += '-' + gv.plugin_data['ld'][sensid]['name'] + '.csv'
+        records = read_log('sensors/'+gv.plugin_data['ld'][sensid]['name']+'/logs/evlog')
 
         data = _("Date, Time, Event") + "\n"
         for r in records:
@@ -1084,9 +1059,7 @@ class multigraph_sensors(ProtectedPage):
                 # likely coming from one substations sensor page to another substation without the sensor
                 # Go to /lda without being caught by current try/exception
             except Exception as ex:
-                gv.logger.info('multigraph_sensors: No response from slave: ' +
-                               gv.plugin_data['su']['subinfo'][subid]['name'] + ' Exception: ' + str(ex))
-                gv.plugin_data['su']['subinfo'][subid]['status'] = 'unreachable'
+                gv.logger.info('multigraph_sensors: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
             raise web.seeother('/lda')
 

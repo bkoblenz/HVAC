@@ -33,24 +33,6 @@ $code:
             jQuery("input[name='rbt']").val(1);
             jQuery("form[name='of']").submit();
         });
-	jQuery("button#cRebootAll").click(function(){
-            jQuery("input[name='rbt']").val(2);
-            jQuery("form[name='of']").submit();
-	});
-
-        jQuery("button#cRestart").click(function(){
-            jQuery("input[name='rstrt']").val(1);
-            jQuery("form[name='of']").submit();
-        });
-
-        jQuery("button#cShutdown").click(function(){
-            jQuery("input[name='rshutdown']").val(1);
-            jQuery("form[name='of']").submit();
-        });
-	jQuery("button#cShutdownAll").click(function(){
-            jQuery("input[name='rshutdown']").val(2);
-            jQuery("form[name='of']").submit();
-	});
 
         jQuery("button#cNetwork").click(function(){
             var r = confirm("Do you really want to stop watering and start configuration mode?");
@@ -59,12 +41,6 @@ $code:
                 jQuery("form[name='of']").submit();
             }
         });
-	jQuery("button#cSaveConfig").click(function(){
-            window.location = baseUrl + "/sc";
-	});
-	jQuery("button#cRestoreConfig").click(function(){
-            window.location = baseUrl + "/rc";
-	});
 
         jQuery("button#cSubmit").click(function(){
             // process time zone value
@@ -215,19 +191,12 @@ $code:
         output += "</div>\n"
         output += categoryCloser + "<div class='category collapsible collapsed'><h4>"+_('Administration')+"</h4>"
         output += "<div class='option'>"
-        output += "&nbsp;<button id='cShutdown' class='reboot danger' title=" + json.dumps(_('Power down hardware'), ensure_ascii=False) + ">" + _('Shutdown')+"</button>"
-        if sd['master']:
-            output += "&nbsp;<button id='cShutdownAll' class='reboot danger' title=" + json.dumps(_('Power down all substations'), ensure_ascii=False) + ">" + _('Shutdown All')+"</button>"
         output += "&nbsp;<button id='cReboot' class='reboot danger' title=" + json.dumps(_('Reboot hardware'), ensure_ascii=False) + ">" + _('Reboot')+"</button>"
-        if sd['master']:
-            output += "&nbsp;<button id='cRebootAll' class='reboot danger' title=" + json.dumps(_('Reboot all substations'), ensure_ascii=False) + ">" + _('Reboot All')+"</button>"
         output += "&nbsp;<button id='cNetwork' class='reboot danger' title=" + json.dumps(_('Reconfigure Networking and Reboot hardware'), ensure_ascii=False) + ">" + _('Network Reconfiguration')+"</button>"
         output += "</div>\n"
         output += categoryCloser
     $:{output}
         <input type="hidden" name="rbt" value="0">
-        <input type="hidden" name="rstrt" value="0">
-        <input type="hidden" name="rshutdown" value="0">
         <input type="hidden" name="netconfig" value="0">
     </form>
 </div>
@@ -235,8 +204,6 @@ $code:
 <div id="controls">
     <button id='cSubmit' class="submit">$_('Submit Changes')</button>
     <button id='cCancel' class="cancel danger">$_('Cancel')</button>
-    <button id="cSaveConfig" class="save_config">$_('Save Configuration')</button>
-    <button id="cRestoreConfig" class="restore_config danger">$_('Restore Configuration')</button>
     $if not(sd['ipas']):
         <button id="bLogout" class="logout" title=$:{json.dumps(_('Logout'), ensure_ascii=False)}>$_('Logout')</button>
 </div>
