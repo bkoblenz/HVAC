@@ -162,10 +162,12 @@ boiler_call = 0
 circ_pump = 1
 open_ret = 2
 close_ret = 3
-dry1 = 4
+trip_heatpump = 4
+# isnt used and doesn't really work with new trip_heatpump
+dry1 = 5
 dry2 = 5
-dry3 = 6
-dry4 = 7
+dry3 = 5
+dry4 = 5
 
 last_boiler_off = 0
 last_boiler_on = 0
@@ -511,6 +513,7 @@ def timing_loop():
     sleep_time = 15
     last_wakeup = int(time.time())
     sustained_cold = last_wakeup
+    last_trip_heatpump = last_wakeup
     low_supply_count = 0
 
     while True:  # infinite loop
@@ -765,7 +768,6 @@ def timing_loop():
                         set_heatpump_mode('none')
             if gv.sd['mode'] in ['Heatpump then Boiler', 'Heatpump Only']:
 #                if ave_supply_temp < heatpump_setpoint_h-13 or ave_return_temp < 32:
-                switch_to_boiler = False
                 if ave_supply_temp < boiler_supply_crossover_c:
                     # Typically takes 300-450 seconds from low point to reach ok, and once starts trending up stays trending uo
                     if low_supply_count % 150 == 0:
@@ -778,22 +780,27 @@ def timing_loop():
                         last_ave_supply_temp = ave_supply_temp
                         log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' trend: ' + trend)
                     low_supply_count += sleep_time
-                    if low_supply_count > gv.sd['low_supply_time']*60: # try to hold off boiler if heatpump water getting warmer
-                        #switch_to_boiler = trend != 'Increasing' and gv.sd['mode'] == 'Heatpump then Boiler'
-                        switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
-                        if switch_to_boiler:
-                            log_event('Heatpump hot water supply failure')
+                    if low_supply_count > gv.sd['low_supply_time']*60 and last_wakeup-last_trip_heatpump >= gv.sd['low_supply_time']*60*2:
+                        if gv.sd['mode'] == 'Heatpump then Boiler':
+                            log_event('Heatpump hot water supply failure.')
                             try:
-                                gv.plugin_data['te']['tesender'].try_mail('Heating', 'Heatpump hot water supply failure')
+                                gv.plugin_data['te']['tesender'].try_mail('Heating', 'Heatpump hot water supply failure.')
                             except:
                                 log_event('hot supply water failure email send failed')
+                            gv.srvals[trip_heatpump] = 1
+                            set_output()
+                            time.sleep(1)
+                            log_event('Reset heatpump complete.')
+                            gv.srvals[trip_heatpump] = 0
+                            set_output()
+                            last_trip_heatpump = last_wakeup
                             low_supply_count = 0 # reset
-                        switch_to_boiler = False # just rely on coldgap for now
                 elif not buffer_tank_isolated: # only reset once we know we are looking at buffer tank water
                     low_supply_count = 0
-                if last_wakeup - sustained_cold > gv.sd['cold_gap_time']*60:
-                    switch_to_boiler = gv.sd['mode'] == 'Heatpump then Boiler'
-                if switch_to_boiler and boiler_md == 'none' and gv.now-last_boiler_off > 2*60 and gv.now-last_heatpump_on > 3*60:
+                cold_min = (last_wakeup - sustained_cold)//60
+                if gv.sd['mode'] == 'Heatpump then Boiler' and cold_min > gv.sd['cold_gap_time'] and boiler_md == 'none' and \
+                        gv.now-last_boiler_off > 2*60 and gv.now-last_heatpump_on > 3*60 and \
+                        (ave_supply_temp <= boiler_supply_crossover_c+2 or cold_min > 2*gv.sd['cold_gap_time']):
                     log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' coldgap: ' + str(last_wakeup-sustained_cold))
                     # Use only boiler for a while
                     remove_action({'what':'set_valve_change'})
