@@ -444,7 +444,12 @@ class view_log(ProtectedPage):
         else:
             try:
                 subid, data = load_and_save_remote(qdict, ['sd', 'snames', 'wlog', 'elog'], 'susldr', 'data', {'sd':1, 'snames':1, 'wlog':1, 'elog':1, 'end_date':'', 'days_before':0})
-                return template_render.log(subid, data['snames'], data['sd'], data['wlog'], data['elog'])
+                try:
+                    return template_render.log(subid, data['snames'], data['sd'], data['wlog'], data['elog'])
+                except:
+                    gv.logger.exception('view_log prerender: ' + str(data))
+                    gv.plugin_data['te']['tesender'].try_mail('Heating', 'Bad log')
+                    return template_render.log(subid, data['snames'], data['sd'], [], []) # probably corrupt data
             except Exception as ex:
                 gv.logger.info('view_log: Exception: ' + str(ex))
                 raise web.seeother('/unreachable')
