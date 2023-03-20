@@ -780,8 +780,9 @@ def timing_loop():
                         last_ave_supply_temp = ave_supply_temp
                         log_event('low_supply: ' + str(low_supply_count) + ' supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' trend: ' + trend)
                     low_supply_count += sleep_time
-                    if low_supply_count > gv.sd['low_supply_time']*60 and last_wakeup-last_trip_heatpump >= gv.sd['low_supply_time']*60*2:
+                    if low_supply_count > gv.sd['low_supply_time']*60 and last_wakeup-last_trip_heatpump >= gv.sd['low_supply_time']*60*2 and trend != 'Increasing':
                         if gv.sd['mode'] == 'Heatpump then Boiler':
+                            gv.logger.info('hot water supply failure.  low_supply_count: ' + str(low_supply_count))
                             log_event('Heatpump hot water supply failure.')
                             try:
                                 gv.plugin_data['te']['tesender'].try_mail('Heating', 'Heatpump hot water supply failure.')
