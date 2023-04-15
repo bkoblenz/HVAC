@@ -75,13 +75,16 @@ class login(WebPage):
         else:
             gv.logger.info('login succeeded')
             web.config._session.user = 'admin'
+            gv.logged_in = True
             gv.plugin_data['te']['tesender'].try_mail('Login', 'Success')
             report_login()
             raise web.seeother('/')
 
 class logout(ProtectedPage):
     def GET(self):
+        gv.logger.info('logout')
         web.config._session.user = 'anonymous'
+        gv.logged_in = False
         raise web.seeother('/')
 
 class sw_unreachable(ProtectedPage):

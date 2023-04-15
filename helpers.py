@@ -1409,6 +1409,8 @@ def check_login(redirect=False):
     try:
         if gv.sd['ipas'] == 1:
             return True
+        if gv.logged_in:
+            return True
 
         remote = web.ctx.env['REMOTE_ADDR']
         (ten,base,s0,s1) = split_ip(remote)
