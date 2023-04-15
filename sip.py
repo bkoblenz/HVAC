@@ -801,6 +801,7 @@ def timing_loop():
                 cold_min = (last_wakeup - sustained_cold)//60
                 if gv.sd['mode'] == 'Heatpump then Boiler' and cold_min > gv.sd['cold_gap_time'] and boiler_md == 'none' and \
                         gv.now-last_boiler_off > 2*60 and gv.now-last_heatpump_on > 3*60 and \
+                        ave_supply_temp <= 40 and \
                         (ave_supply_temp <= boiler_supply_crossover_c+2 or cold_min > 3*gv.sd['cold_gap_time'] or
                          (ave_supply_temp <= boiler_supply_crossover_c+3.5 and cold_min > 2*gv.sd['cold_gap_time'])):
                     log_event('reenable boiler; supply: ' + "{0:.2f}".format(ave_supply_temp) + ' return: ' + "{0:.2f}".format(ave_return_temp) + ' coldgap: ' + str(last_wakeup-sustained_cold))
