@@ -1409,8 +1409,6 @@ def check_login(redirect=False):
     try:
         if gv.sd['ipas'] == 1:
             return True
-        if gv.logged_in:
-            return True
 
         remote = web.ctx.env['REMOTE_ADDR']
         (ten,base,s0,s1) = split_ip(remote)
@@ -1435,6 +1433,12 @@ def check_login(redirect=False):
 
         if web.config._session.user == 'admin':
             return True
+
+        if gv.logged_in:
+            if int(time.time()) - gv.logged_in <= 2*60*60:
+                return True
+            else:
+                gv.logged_in = 0 # force logout
 
     except KeyError:
         pass

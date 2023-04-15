@@ -12,7 +12,7 @@ minor_ver = 2
 old_count = 275
 logger = logging.getLogger('irricloud')
 MB=1024*1024
-logged_in = False
+logged_in = 0
 
 try:
     revision = int(subprocess.check_output(['git', 'rev-list', '--count', '--first-parent', 'HEAD']))
