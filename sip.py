@@ -369,7 +369,7 @@ def read_sensor_value(name, logit=False):
         if s['name'] == name:
             return s['last_read_value']
 
-    zc = None
+    zc = 0 if gv.sd['mode'] == 'None' else None
     if name == 'zone_call_thermostats':
         max_gap = 0
         fails = 0
@@ -703,10 +703,13 @@ def timing_loop():
             art_c = ave_return_temp
             art_f = art_c*1.8 + 32
             dew_f = dew*1.8 + 32
-            log_event('supply temp: ' + "{0:.2f}".format(ast_c) + 'C ' + "{0:.2f}".format(ast_f) + 'F' + '; ' + \
-                      'return temp: ' + "{0:.2f}".format(art_c) + 'C ' + "{0:.2f}".format(art_f) + 'F' + '; ' + \
-                      'cold: ' + str(last_wakeup-sustained_cold) + '; ' + \
-                      'dewpoint: ' + "{0:.2f}".format(dew) + 'C ' + "{0:.2f}".format(dew_f) + 'F')
+            msg = 'supply temp: ' + "{0:.2f}".format(ast_c) + 'C ' + "{0:.2f}".format(ast_f) + 'F' + '; '
+            msg += 'return temp: ' + "{0:.2f}".format(art_c) + 'C ' + "{0:.2f}".format(art_f) + 'F' + '; '
+            if gv.sd['mode'] == 'Heatpump Cooling':
+                msg += 'dewpoint: ' + "{0:.2f}".format(dew) + 'C ' + "{0:.2f}".format(dew_f) + 'F'
+            elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Heatpump then Boiler']:
+                msg += 'cold: ' + str(last_wakeup-sustained_cold)
+            log_event(msg)
 
         #gv.logger.info('last_zc: ' + str(last_zc) + ' zc: ' + str(zc) + ' zct: ' + str(zct))
         if zc != last_zc: # change in zone call
