@@ -22,7 +22,6 @@ from urls import urls  # Get access to ospi's URLs
 from ospi import template_render
 from webpages import ProtectedPage, WebPage, load_and_save_remote, message_base, validate_remote, get_ip_to_base
 from helpers import jsave, get_ip, read_log, reboot, get_remote_sensor_boards, update_upnp, update_hostname, update_tza
-from system_update import checker as updatechecker
 import subprocess
 
 disable_substations = False
@@ -504,10 +503,6 @@ class slave_data_request(ProtectedPage):
                 gv.snotes = ddict['snotes']
                 jsave(gv.snotes, 'snotes')
                 info['snotes'] = 1
-
-        if 'update_status' in ddict and ddict['update_status']:
-            updatechecker.update_rev_data()
-            info['update_status'] = updatechecker.status
 
         web.header('Content-Type', 'application/json')
         ret_str = json.dumps(info)

@@ -398,6 +398,7 @@ class change_options(ProtectedPage):
         gv.sd['cold_gap_time'] = int(qdict['ocold_gap_time'])
         gv.sd['USR_ip'] = qdict['oUSR_ip']
         gv.sd['max_dewpoint'] = float(qdict['omax_dewpoint'])
+        nest_therms = [th for th in gv.sd['thermostats'] if 'nest-' in th['ip']]
         try:
             gv.sd['thermostats'] = qdict['otherm_ips'].split(',')
         except:
@@ -409,6 +410,17 @@ class change_options(ProtectedPage):
         gv.sd['therm_ips'] = ', '.join(gv.sd['thermostats'])
         for i, ip in enumerate(gv.sd['thermostats']):
             gv.sd['thermostats'][i] = {'ip': ip, 'mode':int(qdict['oip'+str(i)+'_mode']), 'temp':float(qdict['oip'+str(i)+'_temp'])}
+        #gv.logger.info('nest_therms: ' + str(nest_therms))
+        for i in range(len(nest_therms)): # restore nest data with new mode/targets
+            #gv.logger.info('nest ' + str(len(gv.sd['thermostats'])+i) + ': ' + str(qdict))
+            try:
+                tstate = {'ip': nest_therms[i]['ip'], 'name': nest_therms[i]['name'],
+                          'mode':int(qdict['oip'+str(len(gv.sd['thermostats']))+'_mode']),
+                          'temp':float(qdict['oip'+str(len(gv.sd['thermostats']))+'_temp'])}
+                gv.logger.info('tstate: ' + str(tstate))
+                gv.sd['thermostats'].append(tstate)
+            except:
+                gv.logger.exception('therms')
         try:
             new_base = float(qdict['oetbase'])
             new_weather = gv.sd['wl_et_weather'] * float(gv.sd['etbase'])/new_base

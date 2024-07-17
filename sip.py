@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # see http://electronics.ozonejunkie.com/2014/12/opening-up-the-usr-htw-wifi-temperature-humidity-sensor/    (10.10.100.254 default)
+from __future__ import print_function
+
 import socket
 import math
 
@@ -20,6 +22,7 @@ import web  # the Web.py module. See webpy.org (Enables the Python SIP web inter
 import gv
 import logging
 import logging.handlers
+
 from helpers import *
 import subprocess
 import shutil
@@ -27,6 +30,7 @@ from urls import urls  # Provides access to URLs for UI pages
 from gpio_pins import set_output
 import i2c
 from i2c import i2c_read, i2c_write
+import base64
 
 import urllib
 try:
@@ -34,6 +38,10 @@ try:
 except:
     from urllib.request import urlopen
 
+print('done importing')
+
+nest = {}
+mode_map = {2:'COOL', 1: 'HEAT', 0: 'OFF'} # match templates/options.html for nest/radiothermostat compatibility
 
 b = 17.67 # see wikipedia
 c = 243.5
@@ -61,17 +69,17 @@ def explore_sockets(ip):
         s.settimeout(2)
         try:
             s.connect((ip, i))
-            print 'SUCCESS connect ', ip, i
+            print ('SUCCESS connect ', ip, i)
             s.close()
             time.sleep(3)
         except:
             if i % 500 == 0:
-                print 'failed connect ', ip, i
+                print ('failed connect ', ip, i)
             pass
 
 USR_TCP_PORT = 8899
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 def connect_socket():
     global s
 
@@ -86,7 +94,7 @@ def connect_socket():
 #            log_event('Retry connect...')
             time.sleep(10)
 
-connect_socket()
+#connect_socket()
 
 PACK_LEN = 11
 bytes_data = [0] * PACK_LEN
@@ -137,10 +145,10 @@ def dewpoint_loop():
             if not gv.sd['USR_ip']:
                 continue
             (dew_temp, dew_hum) = get_temp_hum()
-            print 'dew_temp: ', dew_temp, ' dew_hum: ', dew_hum
+            print ('dew_temp: ', dew_temp, ' dew_hum: ', dew_hum)
             failed_dewpoint_read = 0
             dew = dewpoint(dew_temp, dew_hum)
-            print 'dew: ', dew
+            print ('dew: ', dew)
         except Exception as ex:
             try:
                 if failed_dewpoint_read > 5: # a few failures before panicing
@@ -363,6 +371,8 @@ cooling_adjust_per_degree = 2.5
 
 thermostat_fails = {}
 def read_sensor_value(name, logit=False):
+    global dew
+
     if 'ld' not in gv.plugin_data:
         return None
     for s in gv.plugin_data['ld']:
@@ -375,77 +385,163 @@ def read_sensor_value(name, logit=False):
         fails = 0
         for i, d in enumerate(gv.sd['thermostats']):
             ip = d['ip']
-            cmd = 'http://' + ip + '/tstat'
-            try:
-                data = json.loads(urlopen(cmd, timeout=5).read().decode('utf-8'))
-                thermostat_fails[ip] = 0
-                if logit:
-                    gv.logger.info('tstat ' + ip + ': ' + str(data))
-                # try to make thermostat match target config
-                d['actual'] = data['temp']
-                if 'name' not in d:
-                    curl_cmd = ['/usr/bin/curl', 'http://'+ip+'/sys/name']
-                    try:
-                        upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
-                        d['name'] = json.loads(upd_data)['name']
-                    except Exception as ex:
-                        upd_data = str(ex)
-                    gv.logger.warning('missing name: ' + str(d) + ' Update: ' + upd_data)
-                if data['tmode'] != d['mode']:
-                    curl_cmd = ['/usr/bin/curl',
-                                '-d', json.dumps({'tmode':d['mode']}), cmd]
-                    try:
-                        upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
-                    except Exception as ex:
-                        upd_data = str(ex)
-                    gv.logger.warning('mode mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
-                if d['mode'] == 1 and data['t_heat'] != d['temp']:
-                    curl_cmd = ['/usr/bin/curl',
-                                '-d', json.dumps({'tmode':d['mode'], 't_heat':d['temp'], 'hold':1}), cmd]
-                    try:
-                        upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
-                    except Exception as ex:
-                        upd_data = str(ex)
-                    gv.logger.warning('temp(heat) mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
-                elif d['mode'] == 2 and data['t_cool'] != d['temp']:
-                    curl_cmd = ['/usr/bin/curl',
-                                '-d', json.dumps({'tmode':d['mode'], 't_cool':d['temp'], 'hold':1}), cmd]
-                    try:
-                        upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
-                    except Exception as ex:
-                        upd_data = str(ex)
-                    gv.logger.warning('temp(heat) mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
-                if gv.sd['mode'] in ['Heatpump Cooling']:
-                    if data['tmode'] in [2,3] and data['temp'] > data['t_cool']:
-                        #zc = 1
-                        zc = max(zc, min(1, int(data['tstate']))) # use thermostats notion of call fr cool (data['tstate'] == 2 for cooling)
-                        local_gap = data['temp']-data['t_cool'] # degrees F
-                        max_gap = max(max_gap, local_gap)
-                    elif zc == None:
-                        zc = 0
-                elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Heatpump then Boiler']:
-                    if data['tmode'] in [1,3] and data['temp'] < data['t_heat']: 
-                        #zc = 1
-                        zc = max(zc, int(data['tstate'])) # use thermostats notion of call fr heat (data['tstate'] == 1 for heating)
-                        local_gap = data['t_heat']-data['temp'] # degrees F
-                        max_gap = max(max_gap, local_gap)
-                        gv.logger.info('ip: ' + ip + ' temp: ' + str(data['temp']) + ' target: ' + str(data['t_heat']) + ' gap: ' + str(max_gap) + ' localgap: ' + str(local_gap))
-                    elif zc == None:
-                        zc = 0
-            except Exception as ex:
-                gv.logger.warning('thermostat: ' + ip + ' exception: ' + str(ex))
+            if 'nest-' in ip:
+                curl_cmd = ['/usr/bin/curl',
+                            '--header', 'Content-Type: application/json',
+                            '--header', 'Authorization: Bearer '+nest['access_token'],
+                            'https://smartdevicemanagement.googleapis.com/v1/'+ip[5:]]
                 try:
-                    if thermostat_fails[ip] > 5:
-                        log_event('Thermostat failure ' + ip + ' ex: ' + str(ex))
-                        thermostat_fails[ip] = 0
-                        try:
-                            gv.plugin_data['te']['tesender'].try_mail('Thermostat', 'Thermostat failure')
-                        except:
-                            pass
-                except:
+                    therm_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
                     thermostat_fails[ip] = 0
-                thermostat_fails[ip] += 1
-                fails += 1
+                    traits = therm_data['traits']
+                    #gv.logger.info('therm_data: ' + json.dumps(traits, indent=2))
+                    temp = round(traits['sdm.devices.traits.Temperature']['ambientTemperatureCelsius']*1.8+32, 1)
+                    mode = traits['sdm.devices.traits.ThermostatMode']['mode']
+                    d['actual'] = temp
+                    hum = traits['sdm.devices.traits.Humidity']['ambientHumidityPercent']
+                    dew = dewpoint((temp-32)/1.8, hum)
+                    if mode != mode_map[d['mode']]:
+                        gv.logger.warning('mismatch nest mode: ' + mode + ' want: ' + mode_map[d['mode']])
+                        params = {"command" : "sdm.devices.commands.ThermostatMode.SetMode",
+                                  "params" : {"mode" :  mode_map[d['mode']]}
+                                 }
+                        curl_cmd = ['/usr/bin/curl',
+                                    '-d', json.dumps(params),
+                                    '--header', 'Content-Type: application/json',
+                                    '--header', 'Authorization: Bearer '+nest['access_token'],
+                                    'https://smartdevicemanagement.googleapis.com/v1/'+ip[5:]+':executeCommand']
+                        upd_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
+                        #gv.logger.info('update nest res: ' + str(upd_data))
+                    gv.logger.info('tstat nest-' + ip[-10:] + ' ' + mode + ': ' + str(temp) + ' hum: ' + str(hum) + ' dew(C): ' + str(dew))
+                    if gv.sd['mode'] in ['Heatpump Cooling'] and mode == 'COOL':
+                        t_cool = round(traits['sdm.devices.traits.ThermostatTemperatureSetpoint']['coolCelsius']*1.8+32, 1)
+                        if t_cool != d['temp']:
+                            gv.logger.warning('mismatch nest cooling target: ' + str(t_cool) + ' want: ' + str(d['temp']))
+                            params = {"command" : "sdm.devices.commands.ThermostatTemperatureSetpoint.SetCool",
+                                      "params" : {"coolCelsius" :  (d['temp']-32)/1.8}
+                                     }
+                            curl_cmd = ['/usr/bin/curl',
+                                        '-d', json.dumps(params),
+                                        '--header', 'Content-Type: application/json',
+                                        '--header', 'Authorization: Bearer '+nest['access_token'],
+                                        'https://smartdevicemanagement.googleapis.com/v1/'+ip[5:]+':executeCommand']
+                            upd_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
+                            t_cool = d['temp']
+                        if mode == 'COOLING' and temp > t_cool:
+                            #zc = 1
+                            zc = max(zc, min(1, int(traits['sdm.devices.traits.ThermostatHvac']['status'] == 'COOLING'))) # use thermostats notion of call fr cool (data['tstate'] == 2 for cooling)
+                            local_gap = temp-t_cool # degrees F
+                            max_gap = max(max_gap, local_gap)
+                        elif zc == None:
+                            zc = 0
+                    elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Heatpump then Boiler'] and mode == 'HEAT':
+                        t_heat = round(traits['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']*1.8+32, 1)
+                        if t_heat != d['temp']:
+                            gv.logger.warning('mismatch nest heating target: ' + str(t_heat) + ' want: ' + str(d['temp']))
+                            params = {"command" : "sdm.devices.commands.ThermostatTemperatureSetpoint.SetHeat",
+                                      "params" : {"heatCelsius" :  (d['temp']-32)/1.8}
+                                     }
+                            curl_cmd = ['/usr/bin/curl',
+                                        '-d', json.dumps(params),
+                                        '--header', 'Content-Type: application/json',
+                                        '--header', 'Authorization: Bearer '+nest['access_token'],
+                                        'https://smartdevicemanagement.googleapis.com/v1/'+ip[5:]+':executeCommand']
+                            upd_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
+                            t_heat = d['temp']
+                        if mode == 'HEATING' and temp < t_heat: 
+                            #zc = 1
+                            zc = max(zc, int(traits['sdm.devices.traits.ThermostatHvac']['status'] == 'HEATING')) # use thermostats notion of call fr heat (data['tstate'] == 1 for heating)
+                            local_gap = t_heat-temp # degrees F
+                            max_gap = max(max_gap, local_gap)
+                            gv.logger.info('ip: ' + ip + ' temp: ' + str(temp) + ' target: ' + str(t_heat) + ' gap: ' + str(max_gap) + ' localgap: ' + str(local_gap))
+                        elif zc == None:
+                            zc = 0
+                except Exception as ex:
+                    gv.logger.warning('thermostat: ' + ip + ' exception: ' + str(ex))
+                    try:
+                        if thermostat_fails[ip] > 5:
+                            log_event('Thermostat failure ' + ip + ' ex: ' + str(ex))
+                            thermostat_fails[ip] = 0
+                            try:
+                                gv.plugin_data['te']['tesender'].try_mail('Thermostat', 'Thermostat failure')
+                            except:
+                                pass
+                    except:
+                        thermostat_fails[ip] = 0
+                    thermostat_fails[ip] += 1
+                    fails += 1
+            else:
+                cmd = 'http://' + ip + '/tstat'
+                try:
+                    data = json.loads(urlopen(cmd, timeout=5).read().decode('utf-8'))
+                    thermostat_fails[ip] = 0
+                    if logit:
+                        gv.logger.info('tstat ' + ip + ': ' + str(data))
+                    # try to make thermostat match target config
+                    d['actual'] = data['temp']
+                    if 'name' not in d:
+                        curl_cmd = ['/usr/bin/curl', 'http://'+ip+'/sys/name']
+                        try:
+                            upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
+                            d['name'] = json.loads(upd_data)['name']
+                        except Exception as ex:
+                            upd_data = str(ex)
+                        gv.logger.warning('missing name: ' + str(d) + ' Update: ' + upd_data)
+                    if data['tmode'] != d['mode']:
+                        curl_cmd = ['/usr/bin/curl',
+                                    '-d', json.dumps({'tmode':d['mode']}), cmd]
+                        try:
+                            upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
+                        except Exception as ex:
+                            upd_data = str(ex)
+                        gv.logger.warning('mode mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
+                    if d['mode'] == 1 and data['t_heat'] != d['temp']:
+                        curl_cmd = ['/usr/bin/curl',
+                                    '-d', json.dumps({'tmode':d['mode'], 't_heat':d['temp'], 'hold':1}), cmd]
+                        try:
+                            upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
+                        except Exception as ex:
+                            upd_data = str(ex)
+                        gv.logger.warning('temp(heat) mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
+                    elif d['mode'] == 2 and data['t_cool'] != d['temp']:
+                        curl_cmd = ['/usr/bin/curl',
+                                    '-d', json.dumps({'tmode':d['mode'], 't_cool':d['temp'], 'hold':1}), cmd]
+                        try:
+                            upd_data = subprocess.check_output(curl_cmd, universal_newlines=True)
+                        except Exception as ex:
+                            upd_data = str(ex)
+                        gv.logger.warning('temp(heat) mismatch: ' + str(d) + ' got: ' + str(data) + ' Update: ' + upd_data)
+                    if gv.sd['mode'] in ['Heatpump Cooling']:
+                        if data['tmode'] in [2,3] and data['temp'] > data['t_cool']:
+                            #zc = 1
+                            zc = max(zc, min(1, int(data['tstate']))) # use thermostats notion of call fr cool (data['tstate'] == 2 for cooling)
+                            local_gap = data['temp']-data['t_cool'] # degrees F
+                            max_gap = max(max_gap, local_gap)
+                        elif zc == None:
+                            zc = 0
+                    elif gv.sd['mode'] in ['Boiler Only', 'Heatpump Only', 'Heatpump then Boiler']:
+                        if data['tmode'] in [1,3] and data['temp'] < data['t_heat']: 
+                            #zc = 1
+                            zc = max(zc, int(data['tstate'])) # use thermostats notion of call fr heat (data['tstate'] == 1 for heating)
+                            local_gap = data['t_heat']-data['temp'] # degrees F
+                            max_gap = max(max_gap, local_gap)
+                            gv.logger.info('ip: ' + ip + ' temp: ' + str(data['temp']) + ' target: ' + str(data['t_heat']) + ' gap: ' + str(max_gap) + ' localgap: ' + str(local_gap))
+                        elif zc == None:
+                            zc = 0
+                except Exception as ex:
+                    gv.logger.warning('thermostat: ' + ip + ' exception: ' + str(ex))
+                    try:
+                        if thermostat_fails[ip] > 5:
+                            log_event('Thermostat failure ' + ip + ' ex: ' + str(ex))
+                            thermostat_fails[ip] = 0
+                            try:
+                                gv.plugin_data['te']['tesender'].try_mail('Thermostat', 'Thermostat failure')
+                            except:
+                                pass
+                    except:
+                        thermostat_fails[ip] = 0
+                    thermostat_fails[ip] += 1
+                    fails += 1
 
         if logit:
             gv.logger.info(name + ' zc: ' + str(zc) + ' max_gap: ' + str(max_gap))
@@ -466,7 +562,7 @@ def read_temps():
 
 def timing_loop():
     """ ***** Main timing algorithm. Runs in a separate thread.***** """
-    global sustained_cold, last_wakeup
+    global sustained_cold, last_wakeup, nest
 
     last_min = 0
     supply_temp_readings = []
@@ -491,9 +587,62 @@ def timing_loop():
 
     for delay in range(15):
         time.sleep(1) # wait for ip addressing to settle but keep updating time
-        #gv.nowt = time.localtime()   # Current time as time struct.  Updated once per second.
-        #gv.now = timegm(gv.nowt)   # Current time as timestamp based on local time from the Pi. Updated once per second.
 
+    # directions for authorization: https://developers.google.com/nest/device-access/authorize
+    # client_id/client_secret: see data/nest.json
+    # project_id embedded in following: https://console.nest.google.com/device-access/project/b631b9d1-7f4b-4075-8b1d-78c6119fdb79/information
+    # for nest authentication open in chrome:
+    #   https://nestservices.google.com/partnerconnections/PROJECTID/auth?redirect_uri=https://www.google.com&access_type=offline&prompt=consent&client_id=CLIENT_ID&response_type=code&scope=https://www.googleapis.com/auth/sdm.service
+    # result is: https://www.google.com/?code=4/0ATx3LY4zdlc3m37QJ3XUZWOana62cyFSy1msBlM4RSFL1Y3uy-NQNQF-jw8A4O8TW9eYGg&scope=https://www.googleapis.com/auth/sdm.service
+    #
+    # curl -L -X POST -d "client_id=CLIENT_ID&client_secret=CLIENT_SECRET&code=CODE&grant_type=authorization_code&redirect_uri=https%3A%2F%2Fwww.google.com" "https://www.googleapis.com/oauth2/v4/token"
+    #
+    # to finalize authorization:
+    # curl -X GET -H "Content-Type: application/json" -H "Authorization: Bearer ACCESS_TOKEN" "https://smartdevicemanagement.googleapis.com/v1/enterprises/PROJECT_ID/devices"
+    #   returns json list of devices
+    #
+    try:
+        with open('data/nest.json', 'r') as h:
+            nest = json.load(h)
+        if 'access_token' not in nest or gv.now - (nest['access_time']+nest['expires_in']) > 0: # no token or expired?
+            curl_cmd = ['/usr/bin/curl', '-d',
+                  'client_id='+nest['client_id']+'&client_secret='+nest['client_secret']+
+                  '&code='+nest['code']+'&grant_type=authorization_code&redirect_uri=https%3A%2F%2Fwww.google.com',
+                  nest['token_uri']]
+            token_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
+            gv.logger.info('token data: ' + str(token_data))
+            nest['access_time'] = gv.now
+            nest.update(token_data)
+            gv.logger.info('nest data: ' + str(nest))
+            jsave(nest, 'nest')
+    except:
+        gv.plugin_data['te']['tesender'].try_mail('Nest', 'Nest failure')
+        gv.logger.exception('no Nest data')
+        nest = {}
+
+    if nest:
+        while len(gv.sd['thermostats']) > 0 and 'nest-' in gv.sd['thermostats'][-1]['ip']: # clean up old references
+            gv.sd['thermostats'] = gv.sd['thermostats'][:-1]
+        curl_cmd = ['/usr/bin/curl',
+                    '--header', 'Content-Type: application/json',
+                    '--header', 'Authorization: Bearer '+nest['access_token'],
+                    'https://smartdevicemanagement.googleapis.com/v1/enterprises/'+nest['project_id']+'/devices']
+        device_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
+        for dev in device_data['devices']: # rebuild list of thermostats
+            if dev['type'] == 'sdm.devices.types.THERMOSTAT':
+                gv.sd['thermostats'].append({'ip': 'nest-'+dev['name'], 'name':dev['parentRelations'][0]['displayName']})
+                mode = dev['traits']['sdm.devices.traits.ThermostatMode']['mode']
+                mode_rev_map = {v:k for k,v in mode_map.items()}
+                gv.sd['thermostats'][-1]['mode'] = mode_rev_map[mode]
+                gv.sd['thermostats'][-1]['temp'] = 70
+                if mode == 'HEAT':
+                    gv.sd['thermostats'][-1]['temp'] = round(dev['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']*1.8 + 32, 1)
+                elif mode == 'COOL':
+                    gv.sd['thermostats'][-1]['temp'] = round(dev['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['coolCelsius']*1.8 + 32, 1)
+                elif mode != 'OFF':
+                    gv.logger.error('Unexpected nest mode: ' + dev['name'])
+
+    gv.logger.info('thermostats: ' + str(gv.sd['thermostats']))
     start_time = gv.now
     check_and_update_upnp()
     last_upnp_refresh = gv.now
@@ -523,10 +672,31 @@ def timing_loop():
         last_wakeup = int(time.time())
         # perform once per minute processing
         if gv.now // 60 != last_min:  # only check programs once a minute
+            refresh_gap = gv.now - nest['access_time']
+            #gv.logger.info('refresh_gap: ' + str(refresh_gap))
+            if nest and gv.now - nest['access_time'] > nest['expires_in']//2: # need refresh?
+                curl_cmd = ['/usr/bin/curl', '-d',
+                      'client_id='+nest['client_id']+'&client_secret='+nest['client_secret']+
+                      '&refresh_token='+nest['refresh_token']+'&grant_type=refresh_token',
+                      nest['token_uri']]
+                token_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
+                gv.logger.info('refreshed token')
+                #gv.logger.info('refresh_token data: ' + str(token_data))
+                nest['access_time'] = gv.now
+                nest.update(token_data)
+                #gv.logger.info('nest data: ' + str(nest))
+                jsave(nest, 'nest')
             gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(last_wakeup-sustained_cold))
             boiler_supply_crossover_c = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
             zct, max_gap, fails = read_sensor_value('zone_call_thermostats', last_min % 5 == 0)
+            tzc = read_sensor_value('zone_call')
+            if zct != tzc:
+                if tzc:
+                    gv.logger.warning('Zone_call_thermostat (' + str(zct) + ') does not match zone_call sensor (' + str(tzc) +')...enabling')
+                    zct = tzc
+                else:
+                    gv.logger.warning('Zone_call_thermostat (' + str(zct) + ') does not match zone_call sensor (' + str(tzc) +')')
             if zct or (fails > 0 and last_zc): # keep on with what we had if we could not access some thermostats
                 if fails == 0 and max_gap <= gv.sd['cold_gap_temp']:
                     sustained_cold = last_wakeup # reset as we are close enough
@@ -534,7 +704,6 @@ def timing_loop():
                     gv.logger.info('missed zct fails: ' + str(fails) + ' last_zc: ' + str(last_zc) + ' forcing zct on')
                     zct = 1 
                 #gv.logger.info('max_gap: ' + str(max_gap) + ' for: ' + str(last_wakeup-sustained_cold) + ' seconds')
-                tzc = read_sensor_value('zone_call')
                 if not tzc: # small gap (.5F) may lead to no call for heat from thermostat (so zone pump will not run), so ignore implied call for heat
                     if True:
                         gv.logger.warning('Zone_call_thermostat set and does not match zone_call sensor...using ON gap: ' + "{0:.2f}".format(max_gap))
@@ -961,6 +1130,7 @@ if __name__ == '__main__':
         else:
             gv.logger.critical('Bad parameter to sip: ' + level_name)
 
+    print('starting')
     gv.logger.critical('Starting')
     key_files = ['/etc/network/interfaces', '/etc/wpa_supplicant/wpa_supplicant.conf', '/etc/resolv.conf']
     for f in key_files:
@@ -1001,8 +1171,8 @@ if __name__ == '__main__':
     except Exception:
         pass
     
-    gv.logger.info('Starting dewpoint thread')
-    thread.start_new_thread(dewpoint_loop, ())
+    #gv.logger.info('Starting dewpoint thread')
+    #thread.start_new_thread(dewpoint_loop, ())
 
     gv.logger.info('Starting action thread')
     thread.start_new_thread(action_loop, ())
