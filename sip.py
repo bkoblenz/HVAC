@@ -393,6 +393,7 @@ def read_sensor_value(name, logit=False):
                 try:
                     therm_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
                     thermostat_fails[ip] = 0
+                    #gv.logger.info('therm_data: ' + json.dumps(therm_data, indent=2))
                     traits = therm_data['traits']
                     #gv.logger.info('therm_data: ' + json.dumps(traits, indent=2))
                     temp = round(traits['sdm.devices.traits.Temperature']['ambientTemperatureCelsius']*1.8+32, 1)
@@ -611,12 +612,14 @@ def timing_loop():
                   nest['token_uri']]
             token_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
             gv.logger.info('token data: ' + str(token_data))
+            if 'error' in token_data:
+                raise IOError(str(token_data))
             nest['access_time'] = gv.now
             nest.update(token_data)
             gv.logger.info('nest data: ' + str(nest))
             jsave(nest, 'nest')
-    except:
-        gv.plugin_data['te']['tesender'].try_mail('Nest', 'Nest failure')
+    except Exception as ex:
+        gv.plugin_data['te']['tesender'].try_mail('Nest', 'Nest failure: ' + str(ex))
         gv.logger.exception('no Nest data')
         nest = {}
 
@@ -680,12 +683,17 @@ def timing_loop():
                       '&refresh_token='+nest['refresh_token']+'&grant_type=refresh_token',
                       nest['token_uri']]
                 token_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
-                gv.logger.info('refreshed token')
-                #gv.logger.info('refresh_token data: ' + str(token_data))
-                nest['access_time'] = gv.now
-                nest.update(token_data)
-                #gv.logger.info('nest data: ' + str(nest))
-                jsave(nest, 'nest')
+                if 'error' in token_data:
+                    gv.logger.error('refresh_token failed: ' + str(token_data))
+                    gv.plugin_data['te']['tesender'].try_mail('Nest', 'Nest refresh failure: ' + str(token_data))
+                    nest['access_time'] = gv.now
+                else:
+                    gv.logger.info('refreshed token')
+                    #gv.logger.info('refresh_token data: ' + str(token_data))
+                    nest['access_time'] = gv.now
+                    nest.update(token_data)
+                    #gv.logger.info('nest data: ' + str(nest))
+                    jsave(nest, 'nest')
             gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(last_wakeup-sustained_cold))
             boiler_supply_crossover_c = gv.sd['boiler_supply_temp'] if gv.sd['tu'] == 'C' else (gv.sd['boiler_supply_temp']-32)/1.8
             last_min = gv.now // 60
@@ -991,7 +999,7 @@ def timing_loop():
                     #insert_action(gv.now+(extra_min+40)*60, {'what':'set_boiler_mode', 'mode':'none'}) # used to be 59
                     insert_action(gv.now+(extra_min+40)*60, {'what':'set_boiler_mode', 'mode':'none'}) # used to be 59
             if gv.sd['mode'] == 'Heatpump Cooling' and gv.now-last_dewpoint_adjust >= 60:
-                 dewpoint_margin = 1.
+                 dewpoint_margin = 0. # 1.
                  target = max(dew+dewpoint_margin, 6.)
                  adjust = 0
                  if ave_supply_temp >= 19:
