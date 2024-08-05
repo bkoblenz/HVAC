@@ -594,6 +594,8 @@ def timing_loop():
     # project_id embedded in following: https://console.nest.google.com/device-access/project/b631b9d1-7f4b-4075-8b1d-78c6119fdb79/information
     # for nest authentication open in chrome:
     #   https://nestservices.google.com/partnerconnections/PROJECTID/auth?redirect_uri=https://www.google.com&access_type=offline&prompt=consent&client_id=CLIENT_ID&response_type=code&scope=https://www.googleapis.com/auth/sdm.service
+    # actual:
+    #   https://nestservices.google.com/partnerconnections/b631b9d1-7f4b-4075-8b1d-78c6119fdb79/auth?redirect_uri=https://www.google.com&access_type=offline&prompt=consent&client_id=634832740545-uaiim2nbk3c5nj09bnv8pvcaindo1pg6.apps.googleusercontent.com&response_type=code&scope=https://www.googleapis.com/auth/sdm.service
     # result is: https://www.google.com/?code=4/0ATx3LY4zdlc3m37QJ3XUZWOana62cyFSy1msBlM4RSFL1Y3uy-NQNQF-jw8A4O8TW9eYGg&scope=https://www.googleapis.com/auth/sdm.service
     #
     # curl -L -X POST -d "client_id=CLIENT_ID&client_secret=CLIENT_SECRET&code=CODE&grant_type=authorization_code&redirect_uri=https%3A%2F%2Fwww.google.com" "https://www.googleapis.com/oauth2/v4/token"
@@ -677,20 +679,20 @@ def timing_loop():
         if gv.now // 60 != last_min:  # only check programs once a minute
             refresh_gap = gv.now - nest['access_time']
             #gv.logger.info('refresh_gap: ' + str(refresh_gap))
-            if nest and gv.now - nest['access_time'] > nest['expires_in']//2: # need refresh?
+            if nest and refresh_gap > nest['expires_in']//2: # need refresh?
                 curl_cmd = ['/usr/bin/curl', '-d',
                       'client_id='+nest['client_id']+'&client_secret='+nest['client_secret']+
                       '&refresh_token='+nest['refresh_token']+'&grant_type=refresh_token',
                       nest['token_uri']]
+                nest['access_time'] = gv.now
                 token_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
+                gv.logger.info('refresh attempt now: ' + str(gv.now) + ' gap: ' + str(refresh_gap))
                 if 'error' in token_data:
                     gv.logger.error('refresh_token failed: ' + str(token_data))
                     gv.plugin_data['te']['tesender'].try_mail('Nest', 'Nest refresh failure: ' + str(token_data))
-                    nest['access_time'] = gv.now
                 else:
                     gv.logger.info('refreshed token')
                     #gv.logger.info('refresh_token data: ' + str(token_data))
-                    nest['access_time'] = gv.now
                     nest.update(token_data)
                     #gv.logger.info('nest data: ' + str(nest))
                     jsave(nest, 'nest')
