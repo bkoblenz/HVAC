@@ -690,10 +690,13 @@ def timing_loop():
                 if 'error' in token_data:
                     gv.logger.error('refresh_token failed: ' + str(token_data))
                     gv.plugin_data['te']['tesender'].try_mail('Nest', 'Nest refresh failure: ' + str(token_data))
+                    nest['expires_in'] = 3600 # slow down failures
                 else:
-                    gv.logger.info('refreshed token')
-                    #gv.logger.info('refresh_token data: ' + str(token_data))
+                    gv.logger.info('refreshed token expires: ' + str(token_data['expires_in']))
+                    gv.logger.info('refreshed_token data: ' + str(token_data))
                     nest.update(token_data)
+                    if nest['expires_in'] < 1800:
+                        gv.logger.info('refreshed_token updating expiration to 1800')
                     #gv.logger.info('nest data: ' + str(nest))
                     jsave(nest, 'nest')
             gv.logger.info('timing_loop last_zc: ' + str(last_zc) + ' coldgap: ' + str(last_wakeup-sustained_cold))
