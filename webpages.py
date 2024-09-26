@@ -250,7 +250,7 @@ def load_and_save_remote(qdict, save_list, cmd, first_param_name, first_param):
     try:
         data = urllib2.urlopen(urlcmd, timeout=gv.url_timeout+timeout_adder)
     except urllib2.URLError:
-        gv.logger.info('load_and_save_remote unreachable urlcmd: ' + urlcmd)
+        gv.logger.exception('load_and_save_remote unreachable urlcmd: ' + urlcmd)
         raise IOError, 'UnreachableRemote'
     except Exception as ex:
         gv.logger.exception('load_and_save_remote unexpected exception: ' + urlcmd)
@@ -396,7 +396,6 @@ class change_options(ProtectedPage):
         #gv.sd['boiler_supply_temp'] = float(qdict['oboiler_supply_temp'])
         gv.sd['cold_gap_temp'] = float(qdict['ocold_gap_temp'])
         gv.sd['cold_gap_time'] = int(qdict['ocold_gap_time'])
-        gv.sd['USR_ip'] = qdict['oUSR_ip']
         gv.sd['max_dewpoint'] = float(qdict['omax_dewpoint'])
         nest_therms = [th for th in gv.sd['thermostats'] if 'nest-' in th['ip']]
         try:
@@ -430,6 +429,10 @@ class change_options(ProtectedPage):
         except:
             pass
 
+        force_reboot = False
+        if gv.sd['nest_code'] != qdict['onest_code']:
+            gv.sd['nest_code'] = qdict['onest_code']
+            force_reboot = True
         jsave(gv.sd, 'sd')
         report_option_change()
 
@@ -437,7 +440,7 @@ class change_options(ProtectedPage):
             gv.logger.info('webpages netconfig')
             subprocess.call(['touch', './data/factory_reset'])
 
-        if 'rbt' in qdict and qdict['rbt'] != '0':
+        if force_reboot or ('rbt' in qdict and qdict['rbt'] != '0'):
             reboot(3)
             raise web.seeother('/reboot')
         raise web.seeother('/')

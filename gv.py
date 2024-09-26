@@ -136,7 +136,7 @@ sd = {
     u"etforecast":1,
     u"etapi":u"",
     u"light_ip":1,
-    u"USR_ip": "192.168.86.115",
+    u"nest_code": "",
     u"max_dewpoint": 7.0,
     u"therm_ips": "",
     u"thermostats": {},
@@ -233,7 +233,7 @@ options += \
     [_("Cold Gap Temp (degrees F)"), "float", "cold_gap_temp", _("Degrees below target temperature when considered cold."), _("System")], \
     [_("Cold Gap Time"), "int", "cold_gap_time", _("Minutes when temperature is Cold Gap degrees below target to enable boiler."), _("System")], \
     [_("Max Dewpoint (degrees C)"), "float", "max_dewpoint", _("Limit dewpoint to this value."), _("System")], \
-    [_("USR Dewpoint IP"), "string", "USR_ip", _("IP address of USR dewpoint sensor."), _("System")], \
+    [_("Nest Code"), "string", "nest_code", _("Google code from enabling access."), _("System")], \
     [_("Thermostat IPs"), "bigstring", "therm_ips", _("Comma separated IP addresses of radiothermostat.com devices."), _("System")],
 
 if sd['enable_upnp']:

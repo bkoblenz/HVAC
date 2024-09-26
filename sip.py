@@ -607,11 +607,19 @@ def timing_loop():
     try:
         with open('data/nest.json', 'r') as h:
             nest = json.load(h)
-        if 'access_token' not in nest or gv.now - (nest['access_time']+nest['expires_in']) > 0: # no token or expired?
+        if 'code' not in nest or gv.sd['nest_code'] != nest['code']:
+            gv.logger.info('changing nest code to: ' + gv.sd['nest_code'] + ' from old nest: ' + str(nest))
+            nest['code'] = gv.sd['nest_code']
+            try:
+                del nest['access_token']
+            except:
+                pass
+        if 'access_token' not in nest or 'access_time' not in nest or gv.now - (nest['access_time']+nest['expires_in']) > 0: # no token or expired?
             curl_cmd = ['/usr/bin/curl', '-d',
                   'client_id='+nest['client_id']+'&client_secret='+nest['client_secret']+
                   '&code='+nest['code']+'&grant_type=authorization_code&redirect_uri=https%3A%2F%2Fwww.google.com',
                   nest['token_uri']]
+            gv.logger.info('curl_cmd: ' + str(curl_cmd))
             token_data = json.loads(subprocess.check_output(curl_cmd, universal_newlines=True))
             gv.logger.info('token data: ' + str(token_data))
             if 'error' in token_data:
