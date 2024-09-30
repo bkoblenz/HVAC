@@ -54,7 +54,7 @@ def dewpoint(t,rh):
 
     g = gamma(t,rh)
     dp = c*g / (b-g)
-    if dp > gv.sd['max_dewpoint']:
+    if dp > gv.sd['max_dewpoint'] and gv.sd['mode'] == 'Heatpump Cooling':
         if high_dewpoint % 100 == 0:
             log_event('DEWPOINT TOO HIGH ' + str(dp) + ' using: ' + str(gv.sd['max_dewpoint']))
         high_dewpoint += 1
