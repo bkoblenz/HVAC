@@ -159,12 +159,19 @@ if __name__ == "__main__":
 
     logger.critical('Starting')
     light_vsb_boards()
-    time.sleep(15) # give time for network to come up
-    light_ip(get_ip())
     pi = pigpio.pi()
     button_pin = 21
     pi.set_mode(button_pin, pigpio.INPUT)
     pi.set_pull_up_down(button_pin, pigpio.PUD_UP)
+
+    for tries in range(20):
+        ip = get_ip()
+        logger.info('initial light ' + str(tries) + ' ip: ' + ip)
+        if ip != 'No IP Settings':
+            light_ip(ip)
+            break
+        blink_led(i2c.ADDRESS, 1, 0)
+        time.sleep(5)
 
     reset_skip = 10
     sip_restart_skip = 2

@@ -685,8 +685,9 @@ def timing_loop():
         last_wakeup = int(time.time())
         # perform once per minute processing
         if gv.now // 60 != last_min:  # only check programs once a minute
-            refresh_gap = gv.now - nest['access_time']
-            #gv.logger.info('refresh_gap: ' + str(refresh_gap))
+            if nest:
+                refresh_gap = gv.now - nest['access_time']
+                #gv.logger.info('refresh_gap: ' + str(refresh_gap))
             if nest and refresh_gap > nest['expires_in']//2: # need refresh?
                 curl_cmd = ['/usr/bin/curl', '-d',
                       'client_id='+nest['client_id']+'&client_secret='+nest['client_secret']+
